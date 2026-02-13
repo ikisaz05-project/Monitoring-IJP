@@ -240,12 +240,12 @@
        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div><label for="machine_dropdown" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">MESIN / MACHINE</label> <select id="machine_dropdown" name="machine_dropdown" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> <option value="">-- SELECT MACHINE --</option> </select>
         </div>
-        <div><label for="serial_number_display" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">SERIAL NUMBER IJP</label>
-         <div class="flex gap-2"><input type="text" id="serial_number_display" readonly class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white uppercase cursor-not-allowed font-semibold" placeholder="AUTO-FILL FROM MACHINE"> <button type="button" id="edit-serial-btn" class="px-4 py-3 bg-blue-500 text-white font-bold rounded-lg uppercase hover:bg-blue-600 transition-all hidden" onclick="window.goToManagement()"> EDIT </button>
+        <div><label for="serial_dropdown" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">SERIAL NUMBER IJP</label>
+         <div class="flex gap-2"><select id="serial_dropdown" name="serial_dropdown" required class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> <option value="">-- SELECT SERIAL NUMBER --</option> </select> <button type="button" id="edit-serial-btn" class="px-4 py-3 bg-blue-500 text-white font-bold rounded-lg uppercase hover:bg-blue-600 transition-all hidden" onclick="window.goToManagement()"> EDIT </button>
          </div>
         </div>
         <div><label for="line" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">LINE</label> <input type="text" id="line" name="line" readonly class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white uppercase cursor-not-allowed" placeholder="AUTO-FILL FROM SELECTION">
-        </div><input type="hidden" id="machine" name="machine"> <input type="hidden" id="serial_dropdown" name="serial_dropdown">
+        </div><input type="hidden" id="machine" name="machine">
         <div><label for="cumulative_op_time" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">CUMULATIVE OP TIME (HOURS)</label> <input type="number" id="cumulative_op_time" name="cumulative_op_time" required min="0" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="0">
         </div>
         <div><label for="ijp_condition" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">KONDISI IJP</label> <select id="ijp_condition" name="ijp_condition" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> <option value="">SELECT CONDITION</option> <option value="OK">OK</option> <option value="NOT OK">NOT OK</option> </select>
@@ -456,11 +456,9 @@
       }
     }
 
-    // Update form dropdowns
+    // Update form dropdowns - MACHINE & SERIAL
     function updateFormDropdowns() {
       const machineDropdown = document.getElementById('machine_dropdown')
-
-      // Get unique machines
       const uniqueMachines = [...new Set(managementData.map(d => d.machine_name))].sort()
       
       machineDropdown.innerHTML = '<option value="">-- SELECT MACHINE --</option>'
@@ -472,28 +470,46 @@
       })
     }
 
-    // Handle machine dropdown change - AUTO-FILL SERIAL
+    // Handle machine dropdown change - POPULATE SERIAL DROPDOWN
     document.getElementById('machine_dropdown').addEventListener('change', function() {
       const selectedMachine = this.value
-      const serialDisplay = document.getElementById('serial_number_display')
+      const serialDropdown = document.getElementById('serial_dropdown')
       const editBtn = document.getElementById('edit-serial-btn')
-      const hiddenSerial = document.getElementById('serial_dropdown')
       
       if (selectedMachine) {
-        const machineRecord = managementData.find(d => d.machine_name === selectedMachine)
-        if (machineRecord) {
-          document.getElementById('line').value = machineRecord.line
-          document.getElementById('machine').value = selectedMachine
-          serialDisplay.value = machineRecord.serial_number
-          hiddenSerial.value = machineRecord.serial_number
-          editBtn.classList.remove('hidden')
-        }
+        // Get all serials for this machine
+        const machineRecords = managementData.filter(d => d.machine_name === selectedMachine)
+        
+        serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
+        machineRecords.forEach(record => {
+          const option = document.createElement('option')
+          option.value = record.serial_number
+          option.dataset.line = record.line
+          option.dataset.id = record.id
+          option.textContent = record.serial_number
+          serialDropdown.appendChild(option)
+        })
+        
+        document.getElementById('machine').value = selectedMachine
+        editBtn.classList.remove('hidden')
+        // Reset line and serial
+        document.getElementById('line').value = ''
+        serialDropdown.value = ''
       } else {
+        serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
         document.getElementById('line').value = ''
         document.getElementById('machine').value = ''
-        serialDisplay.value = ''
-        hiddenSerial.value = ''
         editBtn.classList.add('hidden')
+      }
+    })
+
+    // Handle serial dropdown change - AUTO-FILL LINE
+    document.getElementById('serial_dropdown').addEventListener('change', function() {
+      if (this.value) {
+        const selectedOption = this.options[this.selectedIndex]
+        document.getElementById('line').value = selectedOption.dataset.line || ''
+      } else {
+        document.getElementById('line').value = ''
       }
     })
 
@@ -661,7 +677,7 @@
 
           const formData = {
             line: document.getElementById('line').value.toUpperCase(),
-            serial_number: document.getElementById('serial_number_display').value.toUpperCase(),
+            serial_number: document.getElementById('serial_dropdown').value.toUpperCase(),
             machine: document.getElementById('machine').value.toUpperCase(),
             cumulative_op_time: parseInt(document.getElementById('cumulative_op_time').value) || 0,
             ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
@@ -1261,5 +1277,5 @@
     // Initialize app
     init()
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd2b50543683fce',t:'MTc3MDk2ODczNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd2e9fbc3a2f309',t:'MTc3MDk3MDkwNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
