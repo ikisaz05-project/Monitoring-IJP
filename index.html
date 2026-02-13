@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/module/index.js" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm" type="importmap"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&amp;family=Rajdhani:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
@@ -125,7 +125,7 @@
     <section id="page-dashboard" class="page">
      <div class="mb-6 flex items-center justify-between">
       <div>
-       <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">DASHBOARD MONITORING IJP</h2>
+       <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">DASHBOARD OVERVIEW</h2>
        <p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">REAL-TIME INK JET PRINTER MONITORING STATUS</p>
       </div>
       <div class="flex gap-2"><button id="export-monitoring" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white font-bold rounded-lg uppercase hover:bg-blue-600 transition-all shadow-lg text-sm">
@@ -168,7 +168,7 @@
       <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-200 dark:border-red-800 shadow-lg">
        <div class="flex items-center justify-between mb-3">
         <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-         <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2M6 9v2a6 6 0 0012 0V9m-3 7h6a2 2 0 002-2v-5a2 2 0 00-2-2h-6a2 2 0 00-2 2v5a2 2 0 002 2z" />
+         <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2M6 9v2a6 6 0 0012 0V9m-3 7h6a2 2 0 002-2v-5a2 2 0 00-2-2h-6a2 2 0 00-2 2v5a2 2 0 002 2z" />
          </svg>
         </div><span class="text-xs font-bold text-red-600 dark:text-red-400 uppercase">PROBLEM</span>
        </div>
@@ -179,7 +179,7 @@
      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"><!-- Monitoring Chart -->
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">OPERATION COMMULATIVE TIME</h3>
+        <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">OPERATION TIME CHART</h3>
         <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">⚠️ WARNING: 5000 HRS | 🔴 CRITICAL: 10000 HRS</p>
        </div>
        <div class="p-4 md:p-6">
@@ -254,14 +254,21 @@
        <div id="problem-section" class="hidden border-t-2 border-gray-300 dark:border-gray-600 pt-6 mt-6">
         <div class="mb-6"><label for="problem_description" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">DESKRIPSI PROBLEM</label> <textarea id="problem_description" name="problem_description" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="JELASKAN PROBLEM YANG TERJADI..."></textarea>
         </div>
-        <div><label for="problem_action" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">ACTION / SOLUSI</label> <textarea id="problem_action" name="problem_action" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="TINDAKAN ATAU SOLUSI YANG DIAMBIL..."></textarea>
+        <div class="mb-6"><label for="problem_action" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">ACTION / SOLUSI</label> <textarea id="problem_action" name="problem_action" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="TINDAKAN ATAU SOLUSI YANG DIAMBIL..."></textarea>
+        </div>
+        <div class="pt-6 border-t border-gray-300 dark:border-gray-600"><label for="photo_upload" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">📸 UPLOAD FOTO IJP (MAX 5MB)</label>
+         <div class="flex items-center gap-4 mb-3"><input type="file" id="photo_upload" name="photo_upload" accept="image/*" class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500 file:text-white hover:file:bg-emerald-600">
+          <div id="photo-preview" class="hidden w-20 h-20 rounded-lg overflow-hidden border-2 border-emerald-400 shadow-lg"><img id="preview-img" src="" alt="Preview" class="w-full h-full object-cover">
+          </div>
+         </div>
+         <p id="photo-filename" class="text-xs text-gray-500 dark:text-gray-400 uppercase">NO FILE SELECTED</p>
         </div>
        </div>
        <div><label for="notes" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">CATATAN KHUSUS</label> <textarea id="notes" name="notes" rows="4" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="MASUKKAN SARAN PERBAIKAN..."></textarea>
        </div>
        <div class="flex gap-4"><button type="submit" id="submit-monitoring" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold rounded-lg uppercase tracking-wide hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg">
          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-         </svg> SUBMIT DATA </button> <button type="reset" class="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-lg uppercase tracking-wide hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"> RESET </button>
+         </svg> SUBMIT DATA </button> <button type="reset" id="reset-form" class="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-lg uppercase tracking-wide hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"> RESET </button>
        </div>
       </form><!-- Success Message -->
       <div id="form-success" class="hidden mt-4 p-4 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 rounded-lg">
@@ -291,7 +298,10 @@
        </div><button type="submit" id="submit-management" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold rounded-lg uppercase tracking-wide hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg> UPLOAD DATA </button>
-      </form>
+      </form><!-- Success Message -->
+      <div id="management-success" class="hidden mt-4 p-4 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 rounded-lg">
+       <p class="text-emerald-700 dark:text-emerald-400 font-semibold uppercase">✓ DATA UPLOADED SUCCESSFULLY!</p>
+      </div>
      </div><!-- Management Table -->
      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -362,7 +372,7 @@
    </div>
   </div>
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm'
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
     // Supabase Setup
     const SUPABASE_URL = 'https://okdvksrprvhgqdyioryf.supabase.co'
@@ -396,6 +406,8 @@
     // Load all data from Supabase
     async function loadAllData() {
       try {
+        console.log('Loading data...')
+        
         // Load monitoring data
         const { data: monitoringData, error: monitoringError } = await supabase
           .from('monitoring_data')
@@ -411,6 +423,8 @@
           .order('created_at', { ascending: false })
 
         if (managementError) throw managementError
+
+        console.log('Management data loaded:', managementData)
 
         // Load audit data
         const { data: auditData, error: auditError } = await supabase
@@ -440,34 +454,28 @@
 
     // Subscribe to real-time changes
     function subscribeToChanges() {
-      // Subscribe to monitoring_data changes
       supabase
         .channel('monitoring_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'monitoring_data' },
-          () => loadAllData()
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'monitoring_data' }, () => {
+          console.log('Monitoring data changed')
+          loadAllData()
+        })
         .subscribe()
 
-      // Subscribe to management_data changes
       supabase
         .channel('management_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'management_data' },
-          () => loadAllData()
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'management_data' }, () => {
+          console.log('Management data changed')
+          loadAllData()
+        })
         .subscribe()
 
-      // Subscribe to audit_logs changes
       supabase
         .channel('audit_changes')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'audit_logs' },
-          () => loadAllData()
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => {
+          console.log('Audit data changed')
+          loadAllData()
+        })
         .subscribe()
     }
 
@@ -539,6 +547,31 @@
       const problemExistsSelect = document.getElementById('problem_exists')
       const problemSection = document.getElementById('problem-section')
 
+      // Photo upload preview
+      document.getElementById('photo_upload').addEventListener('change', (e) => {
+        const file = e.target.files[0]
+        const preview = document.getElementById('photo-preview')
+        const filename = document.getElementById('photo-filename')
+        
+        if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+            filename.textContent = 'ERROR: FILE SIZE EXCEEDS 5MB'
+            return
+          }
+          
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            document.getElementById('preview-img').src = event.target.result
+            preview.classList.remove('hidden')
+            filename.textContent = `FILE: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+          }
+          reader.readAsDataURL(file)
+        } else {
+          preview.classList.add('hidden')
+          filename.textContent = 'NO FILE SELECTED'
+        }
+      })
+
       problemExistsSelect.addEventListener('change', () => {
         if (problemExistsSelect.value === 'ADA') {
           problemSection.classList.remove('hidden')
@@ -546,6 +579,9 @@
           problemSection.classList.add('hidden')
           document.getElementById('problem_description').value = ''
           document.getElementById('problem_action').value = ''
+          document.getElementById('photo_upload').value = ''
+          document.getElementById('photo-preview').classList.add('hidden')
+          document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
         }
       })
 
@@ -556,19 +592,43 @@
         btn.disabled = true
         btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> SUBMITTING...'
 
-        const formData = {
-          line: document.getElementById('line').value.toUpperCase(),
-          serial_number: document.getElementById('serial_number').value.toUpperCase(),
-          machine: document.getElementById('machine').value.toUpperCase(),
-          cumulative_op_time: parseInt(document.getElementById('cumulative_op_time').value) || 0,
-          ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
-          problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
-          problem_description: document.getElementById('problem_description').value || '',
-          problem_action: document.getElementById('problem_action').value || '',
-          notes: document.getElementById('notes').value
-        }
-
         try {
+          let photoUrl = ''
+          const photoFile = document.getElementById('photo_upload').files[0]
+
+          // Upload photo if exists and problem exists
+          if (photoFile && document.getElementById('problem_exists').value === 'ADA') {
+            // Generate safe filename
+            const timestamp = Date.now()
+            const safeName = photoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(-50)
+            const filename = `ijp-photos/${timestamp}-${safeName}`
+            
+            const { error: uploadError } = await supabase.storage
+              .from('ijp_monitoring')
+              .upload(filename, photoFile)
+
+            if (uploadError) {
+              console.warn('Photo upload warning:', uploadError)
+              // Continue without photo if upload fails
+            } else {
+              const { data } = supabase.storage.from('ijp_monitoring').getPublicUrl(filename)
+              photoUrl = data.publicUrl
+            }
+          }
+
+          const formData = {
+            line: document.getElementById('line').value.toUpperCase(),
+            serial_number: document.getElementById('serial_number').value.toUpperCase(),
+            machine: document.getElementById('machine').value.toUpperCase(),
+            cumulative_op_time: parseInt(document.getElementById('cumulative_op_time').value) || 0,
+            ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
+            problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
+            problem_description: document.getElementById('problem_description').value || '',
+            problem_action: document.getElementById('problem_action').value || '',
+            notes: document.getElementById('notes').value,
+            photo_url: photoUrl
+          }
+
           const { error } = await supabase
             .from('monitoring_data')
             .insert([formData])
@@ -578,15 +638,23 @@
           showFormMessage('form-success', '✓ DATA SUBMITTED SUCCESSFULLY!')
           document.getElementById('monitoring-form').reset()
           problemSection.classList.add('hidden')
+          document.getElementById('photo-preview').classList.add('hidden')
+          document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
 
-          await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${formData.cumulative_op_time} HRS`)
+          await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${formData.cumulative_op_time} HRS${photoUrl ? ', PHOTO' : ''}`)
         } catch (error) {
           console.error('Error:', error)
-          showFormMessage('form-success', 'ERROR SUBMITTING DATA', true)
+          showFormMessage('form-success', `ERROR: ${error.message}`, true)
         } finally {
           btn.disabled = false
           btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> SUBMIT DATA'
         }
+      })
+
+      document.getElementById('monitoring-form').addEventListener('reset', () => {
+        problemSection.classList.add('hidden')
+        document.getElementById('photo-preview').classList.add('hidden')
+        document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
       })
 
       document.getElementById('management-form').addEventListener('submit', async (e) => {
@@ -603,17 +671,28 @@
         }
 
         try {
-          const { error } = await supabase
+          console.log('Submitting management data:', formData)
+          
+          const { data, error } = await supabase
             .from('management_data')
             .insert([formData])
+            .select()
+
+          console.log('Insert response:', { data, error })
 
           if (error) throw error
 
           document.getElementById('management-form').reset()
+          showFormMessage('management-success', '✓ DATA UPLOADED SUCCESSFULLY!')
+          
+          // Force reload data
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          await loadAllData()
+          
           await logAudit('IJP REGISTERED', `MACHINE: ${formData.machine_name}`)
         } catch (error) {
           console.error('Error:', error)
-          showFormMessage('form-success', 'ERROR UPLOADING DATA', true)
+          showFormMessage('management-success', `ERROR: ${error.message}`, true)
         } finally {
           btn.disabled = false
           btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg> UPLOAD DATA'
@@ -652,7 +731,7 @@
             await logAudit('RECORD DELETED', `ID: ${deleteTarget.id}`)
           } catch (error) {
             console.error('Error:', error)
-            showFormMessage('form-success', 'ERROR DELETING RECORD', true)
+            showFormMessage('form-success', `ERROR: ${error.message}`, true)
           } finally {
             btn.disabled = false
             btn.textContent = 'DELETE'
@@ -693,6 +772,7 @@
         'DESKRIPSI': item.problem_description || '-',
         'ACTION': item.problem_action || '-',
         'NOTES': item.notes || '-',
+        'PHOTO': item.photo_url ? 'YES' : 'NO',
         'TIMESTAMP': new Date(item.created_at).toLocaleString()
       }))
 
@@ -746,9 +826,7 @@
     // Log Audit
     async function logAudit(action, details) {
       try {
-        await supabase
-          .from('audit_logs')
-          .insert([{ user_action: action, activity: details }])
+        await supabase.from('audit_logs').insert([{ user_action: action, activity: details }])
       } catch (error) {
         console.error('Error logging audit:', error)
       }
@@ -948,6 +1026,7 @@
                 <p class="text-xs font-semibold text-green-700 dark:text-green-300 uppercase mb-1">ACTION TAKEN:</p>
                 <p class="text-xs text-gray-600 dark:text-gray-400">${item.problem_action || 'TIDAK ADA ACTION'}</p>
               </div>
+              ${item.photo_url ? `<div class="mt-2"><p class="text-xs text-blue-600 dark:text-blue-400 uppercase">📸 <a href="${item.photo_url}" target="_blank" rel="noopener noreferrer">VIEW PHOTO</a></p></div>` : ''}
             </div>
           </div>
         </div>
@@ -1029,6 +1108,8 @@
       const tbody = document.getElementById('management-table')
       const data = allData.filter(d => d.table_type === 'management')
       
+      console.log('Updating management table with data:', data)
+      
       if (data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO IJP DATA REGISTERED</td></tr>'
         return
@@ -1098,5 +1179,5 @@
     // Initialize app
     init()
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd1172367dbb5e4',t:'MTc3MDk1MTc4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd2560b2285da7d',t:'MTc3MDk2NDg0NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
