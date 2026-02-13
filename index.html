@@ -168,7 +168,7 @@
       <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-200 dark:border-red-800 shadow-lg">
        <div class="flex items-center justify-between mb-3">
         <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-         <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2M6 9v2a6 6 0 0012 0V9m-3 7h6a2 2 0 002-2v-5a2 2 0 00-2-2h-6a2 2 0 00-2 2v5a2 2 0 002 2z" />
+         <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2M6 9v2a6 6 0 0012 0V9m-3 7h6a2 2 0 002-2v-5a2 2 0 00-2-2h-6a2 2 0 00-2 2v5a2 2 0 002 2z" />
          </svg>
         </div><span class="text-xs font-bold text-red-600 dark:text-red-400 uppercase">PROBLEM</span>
        </div>
@@ -218,12 +218,13 @@
           <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">OP TIME</th>
           <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">KONDISI</th>
           <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">PROBLEM</th>
+          <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">FOTO</th>
           <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">STATUS</th>
          </tr>
         </thead>
         <tbody id="monitoring-table" class="divide-y divide-gray-200 dark:divide-gray-700">
          <tr>
-          <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO MONITORING DATA AVAILABLE</td>
+          <td colspan="8" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO MONITORING DATA AVAILABLE</td>
          </tr>
         </tbody>
        </table>
@@ -255,6 +256,12 @@
         <div class="mb-6"><label for="problem_description" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">DESKRIPSI PROBLEM</label> <textarea id="problem_description" name="problem_description" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="JELASKAN PROBLEM YANG TERJADI..."></textarea>
         </div>
         <div><label for="problem_action" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">ACTION / SOLUSI</label> <textarea id="problem_action" name="problem_action" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="TINDAKAN ATAU SOLUSI YANG DIAMBIL..."></textarea>
+        </div>
+       </div>
+       <div><label for="monitoring_photo" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">📸 UPLOAD FOTO MONITORING</label>
+        <div class="flex flex-col gap-3"><input type="file" id="monitoring_photo" name="monitoring_photo" accept="image/*" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer">
+         <div id="photo-preview" class="hidden"><img id="preview-img" src="" alt="Preview" class="max-w-xs h-auto rounded-lg border-2 border-emerald-500 shadow-lg"> <button type="button" id="remove-photo" class="mt-2 px-4 py-2 bg-red-500 text-white font-bold rounded-lg uppercase text-sm hover:bg-red-600 transition-all">REMOVE PHOTO</button>
+         </div>
         </div>
        </div>
        <div><label for="notes" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">CATATAN KHUSUS</label> <textarea id="notes" name="notes" rows="4" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="MASUKKAN SARAN PERBAIKAN..."></textarea>
@@ -375,6 +382,7 @@
     let deleteTarget = null
     let chartInstance = null
     let problemChartInstance = null
+    let photoFile = null
 
     // Initialize
     async function init() {
@@ -392,6 +400,26 @@
       // Subscribe to real-time updates
       subscribeToChanges()
     }
+
+    // Photo Upload Handler
+    document.getElementById('monitoring_photo')?.addEventListener('change', (e) => {
+      const file = e.target.files[0]
+      if (file) {
+        photoFile = file
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          document.getElementById('preview-img').src = event.target.result
+          document.getElementById('photo-preview').classList.remove('hidden')
+        }
+        reader.readAsDataURL(file)
+      }
+    })
+
+    document.getElementById('remove-photo')?.addEventListener('click', () => {
+      photoFile = null
+      document.getElementById('monitoring_photo').value = ''
+      document.getElementById('photo-preview').classList.add('hidden')
+    })
 
     // Load all data from Supabase
     async function loadAllData() {
@@ -556,30 +584,48 @@
         btn.disabled = true
         btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> SUBMITTING...'
 
-        const formData = {
-          line: document.getElementById('line').value.toUpperCase(),
-          serial_number: document.getElementById('serial_number').value.toUpperCase(),
-          machine: document.getElementById('machine').value.toUpperCase(),
-          cumulative_op_time: parseInt(document.getElementById('cumulative_op_time').value) || 0,
-          ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
-          problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
-          problem_description: document.getElementById('problem_description').value || '',
-          problem_action: document.getElementById('problem_action').value || '',
-          notes: document.getElementById('notes').value
-        }
+        let photoUrl = null
 
         try {
+          // Upload photo if exists
+          if (photoFile) {
+            const fileName = `monitoring/${Date.now()}-${photoFile.name}`
+            const { error: uploadError } = await supabase.storage
+              .from('ijp-monitoring')
+              .upload(fileName, photoFile)
+
+            if (uploadError) throw uploadError
+
+            const { data } = supabase.storage.from('ijp-monitoring').getPublicUrl(fileName)
+            photoUrl = data.publicUrl
+          }
+
+          const formData = {
+            line: document.getElementById('line').value.toUpperCase(),
+            serial_number: document.getElementById('serial_number').value.toUpperCase(),
+            machine: document.getElementById('machine').value.toUpperCase(),
+            cumulative_op_time: parseInt(document.getElementById('cumulative_op_time').value) || 0,
+            ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
+            problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
+            problem_description: document.getElementById('problem_description').value || '',
+            problem_action: document.getElementById('problem_action').value || '',
+            notes: document.getElementById('notes').value,
+            photo_url: photoUrl
+          }
+
           const { error } = await supabase
             .from('monitoring_data')
             .insert([formData])
 
           if (error) throw error
 
-          showFormMessage('form-success', '✓ DATA SUBMITTED SUCCESSFULLY!')
+          showFormMessage('form-success', '✓ DATA & FOTO SUBMITTED SUCCESSFULLY!')
           document.getElementById('monitoring-form').reset()
+          document.getElementById('photo-preview').classList.add('hidden')
           problemSection.classList.add('hidden')
+          photoFile = null
 
-          await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${formData.cumulative_op_time} HRS`)
+          await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${formData.cumulative_op_time} HRS, PHOTO: ${photoUrl ? 'YES' : 'NO'}`)
         } catch (error) {
           console.error('Error:', error)
           showFormMessage('form-success', 'ERROR SUBMITTING DATA', true)
@@ -642,6 +688,12 @@
           btn.textContent = 'DELETING...'
 
           try {
+            // Delete photo from storage if exists
+            if (deleteTarget.photo_url) {
+              const photoPath = deleteTarget.photo_url.split('/').pop()
+              await supabase.storage.from('ijp-monitoring').remove([`monitoring/${photoPath}`])
+            }
+
             const { error } = await supabase
               .from('management_data')
               .delete()
@@ -693,6 +745,7 @@
         'DESKRIPSI': item.problem_description || '-',
         'ACTION': item.problem_action || '-',
         'NOTES': item.notes || '-',
+        'FOTO': item.photo_url ? 'YES' : 'NO',
         'TIMESTAMP': new Date(item.created_at).toLocaleString()
       }))
 
@@ -978,7 +1031,7 @@
       const data = allData.filter(d => d.table_type === 'monitoring')
       
       if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO MONITORING DATA AVAILABLE</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO MONITORING DATA AVAILABLE</td></tr>'
         return
       }
 
@@ -1019,6 +1072,9 @@
             <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
             <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
             <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${problemClass}">${item.problem_exists || '-'}</span></td>
+            <td class="px-4 py-3">
+              ${item.photo_url ? `<a href="${item.photo_url}" target="_blank" class="px-2 py-1 text-xs font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full uppercase hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all">📸 VIEW</a>` : '<span class="text-xs text-gray-500 uppercase">NO PHOTO</span>'}
+            </td>
             <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${statusClass} ${statusAnimation}">${statusText}</span></td>
           </tr>
         `
@@ -1098,5 +1154,5 @@
     // Initialize app
     init()
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd1172367dbb5e4',t:'MTc3MDk1MTc4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd127943449b5eb',t:'MTc3MDk1MjQ1Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
