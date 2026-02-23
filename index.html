@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IJP MONITORING SYSTEM - WITH FILTERS</title>
+  <title>IJP MONITORING SYSTEM - WITH FILTERS (FIXED)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
@@ -173,7 +173,7 @@
       </div>
     </section>
 
-    <!-- FORM PAGE (Copy dari code lo yang asli) -->
+    <!-- FORM PAGE -->
     <section id="page-form" class="page hidden">
       <div class="mb-6">
         <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">FORM INPUT IJP</h2>
@@ -275,7 +275,7 @@
       </div>
     </section>
 
-    <!-- WEEKLY PAGE (Copy dari code lo yang asli) -->
+    <!-- WEEKLY PAGE -->
     <section id="page-weekly" class="page hidden">
       <div class="mb-6">
         <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">WEEKLY ANALYSIS</h2>
@@ -311,7 +311,7 @@
       </div>
     </section>
 
-    <!-- MANAGEMENT PAGE (Copy dari code lo yang asli) -->
+    <!-- MANAGEMENT PAGE -->
     <section id="page-management" class="page hidden">
       <div class="mb-6 flex items-center justify-between">
         <div><h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">MANAGEMENT</h2><p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">UPLOAD &amp; MANAGE IJP SERIAL NUMBER DATA</p></div>
@@ -344,7 +344,7 @@
       </div>
     </section>
 
-    <!-- AUDIT PAGE (Copy dari code lo yang asli) -->
+    <!-- AUDIT PAGE -->
     <section id="page-audit" class="page hidden">
       <div class="mb-6 flex items-center justify-between">
         <div><h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">AUDIT TRAIL</h2><p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">SYSTEM ACTIVITY LOG</p></div>
@@ -429,16 +429,39 @@
   let currentLineFilter = 'ALL'
   let currentStatusFilter = 'ALL'
 
-  // HELPER: Get Status from OP Time
+  // ================== HELPER FUNCTIONS ==================
+  
   function getStatusFromOpTime(opTime) {
     if (opTime >= 15000) return 'CRITICAL'
     if (opTime >= 10000) return 'WARNING'
     return 'NORMAL'
   }
 
-  // ================== ALL FUNCTIONS ==================
+  // ================== AUTH FUNCTIONS ==================
   
-  // THEME TOGGLE
+  function updateAuthUI() {
+    const authIndicator = document.getElementById('auth-indicator')
+    const authText = document.getElementById('auth-text')
+    const logoutBtn = document.getElementById('logout-btn')
+    if (isAuthenticated) {
+      authIndicator.className = 'w-2 h-2 rounded-full bg-emerald-500'
+      authText.textContent = 'LOGGED IN'
+      logoutBtn.classList.remove('hidden')
+    } else {
+      authIndicator.className = 'w-2 h-2 rounded-full bg-red-500'
+      authText.textContent = 'NOT LOGGED IN'
+      logoutBtn.classList.add('hidden')
+    }
+  }
+
+  function checkAuthStatus() {
+    const savedAuth = sessionStorage.getItem('ijp_auth')
+    isAuthenticated = savedAuth === 'true'
+    updateAuthUI()
+  }
+
+  // ================== THEME TOGGLE ==================
+  
   function setupThemeToggle() {
     const toggle = document.getElementById('theme-toggle')
     const html = document.documentElement
@@ -473,7 +496,8 @@
     })
   }
 
-  // NAVIGATION
+  // ================== NAVIGATION ==================
+  
   function setupNavigation() {
     document.querySelectorAll('.nav-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -502,7 +526,8 @@
     activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400')
   }
 
-  // AUTO LOCK
+  // ================== AUTO LOCK ==================
+  
   function setupAutoLock() {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && isAuthenticated) forceLogout('TAB SWITCH')
@@ -543,7 +568,8 @@
     }
   }
 
-  // LOGIN
+  // ================== LOGIN ==================
+  
   function setupLogin() {
     const loginModal = document.getElementById('login-modal')
     const loginBtn = document.getElementById('login-submit')
@@ -618,22 +644,8 @@
     })
   }
 
-  function updateAuthUI() {
-    const authIndicator = document.getElementById('auth-indicator')
-    const authText = document.getElementById('auth-text')
-    const logoutBtn = document.getElementById('logout-btn')
-    if (isAuthenticated) {
-      authIndicator.className = 'w-2 h-2 rounded-full bg-emerald-500'
-      authText.textContent = 'LOGGED IN'
-      logoutBtn.classList.remove('hidden')
-    } else {
-      authIndicator.className = 'w-2 h-2 rounded-full bg-red-500'
-      authText.textContent = 'NOT LOGGED IN'
-      logoutBtn.classList.add('hidden')
-    }
-  }
-
-  // LOAD DATA
+  // ================== LOAD DATA ==================
+  
   async function loadAllData() {
     try {
       const { data: monitoringData, error: monitoringError } = await supabase
@@ -672,7 +684,8 @@
     }
   }
 
-  // SUBSCRIBE
+  // ================== SUBSCRIBE ==================
+  
   function subscribeToChanges() {
     supabase.channel('monitoring_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monitoring_data' }, () => {
@@ -688,7 +701,8 @@
       }).subscribe()
   }
 
-  // UPDATE LINE FILTER DROPDOWN
+  // ================== FILTER FUNCTIONS ==================
+  
   function updateLineFilterDropdown() {
     const monitoringData = allData.filter(d => d.table_type === 'monitoring')
     const lines = [...new Set(monitoringData.map(d => d.line).filter(line => line && line.trim()))].sort()
@@ -709,7 +723,6 @@
     }
   }
 
-  // UPDATE MONITORING TABLE with FILTERS
   function updateMonitoringTable() {
     const tbody = document.getElementById('monitoring-table')
     let data = allData.filter(d => d.table_type === 'monitoring')
@@ -788,7 +801,8 @@
     }).join('')
   }
 
-  // UPDATE FORM DROPDOWNS
+  // ================== FORM FUNCTIONS ==================
+  
   function updateFormDropdowns() {
     const machineDropdown = document.getElementById('machine_dropdown')
     const uniqueMachines = [...new Set(managementData.map(d => d.machine_name))].sort()
@@ -801,45 +815,8 @@
     })
   }
 
-  // MACHINE DROPDOWN CHANGE
-  document.getElementById('machine_dropdown').addEventListener('change', function() {
-    const selectedMachine = this.value
-    const serialDropdown = document.getElementById('serial_dropdown')
-    const editBtn = document.getElementById('edit-serial-btn')
-    if (selectedMachine) {
-      const machineRecords = managementData.filter(d => d.machine_name === selectedMachine)
-      serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
-      machineRecords.forEach(record => {
-        const option = document.createElement('option')
-        option.value = record.serial_number
-        option.dataset.line = record.line
-        option.dataset.id = record.id
-        option.textContent = record.serial_number
-        serialDropdown.appendChild(option)
-      })
-      document.getElementById('machine').value = selectedMachine
-      editBtn.classList.remove('hidden')
-      document.getElementById('line').value = ''
-      serialDropdown.value = ''
-    } else {
-      serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
-      document.getElementById('line').value = ''
-      document.getElementById('machine').value = ''
-      editBtn.classList.add('hidden')
-    }
-  })
-
-  // SERIAL DROPDOWN CHANGE
-  document.getElementById('serial_dropdown').addEventListener('change', function() {
-    if (this.value) {
-      const selectedOption = this.options[this.selectedIndex]
-      document.getElementById('line').value = selectedOption.dataset.line || ''
-    } else {
-      document.getElementById('line').value = ''
-    }
-  })
-
-  // FORM SUBMIT
+  // ================== SETUP FUNCTIONS ==================
+  
   function setupForms() {
     const problemExistsSelect = document.getElementById('problem_exists')
     const problemSection = document.getElementById('problem-section')
@@ -972,6 +949,42 @@
         btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg> UPLOAD DATA'
       }
     })
+
+    document.getElementById('machine_dropdown').addEventListener('change', function() {
+      const selectedMachine = this.value
+      const serialDropdown = document.getElementById('serial_dropdown')
+      const editBtn = document.getElementById('edit-serial-btn')
+      if (selectedMachine) {
+        const machineRecords = managementData.filter(d => d.machine_name === selectedMachine)
+        serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
+        machineRecords.forEach(record => {
+          const option = document.createElement('option')
+          option.value = record.serial_number
+          option.dataset.line = record.line
+          option.dataset.id = record.id
+          option.textContent = record.serial_number
+          serialDropdown.appendChild(option)
+        })
+        document.getElementById('machine').value = selectedMachine
+        editBtn.classList.remove('hidden')
+        document.getElementById('line').value = ''
+        serialDropdown.value = ''
+      } else {
+        serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
+        document.getElementById('line').value = ''
+        document.getElementById('machine').value = ''
+        editBtn.classList.add('hidden')
+      }
+    })
+
+    document.getElementById('serial_dropdown').addEventListener('change', function() {
+      if (this.value) {
+        const selectedOption = this.options[this.selectedIndex]
+        document.getElementById('line').value = selectedOption.dataset.line || ''
+      } else {
+        document.getElementById('line').value = ''
+      }
+    })
   }
 
   function showFormMessage(elementId, message, isError = false) {
@@ -981,7 +994,8 @@
     setTimeout(() => el.classList.add('hidden'), 3000)
   }
 
-  // DELETE MODAL
+  // ================== DELETE MODAL ==================
+  
   function setupDeleteModal() {
     document.getElementById('cancel-delete').addEventListener('click', () => {
       document.getElementById('delete-modal').classList.add('hidden')
@@ -1073,7 +1087,8 @@
     }
   }
 
-  // EXPORT BUTTONS
+  // ================== EXPORT FUNCTIONS ==================
+  
   function setupExportButtons() {
     document.getElementById('export-monitoring').addEventListener('click', exportMonitoringData)
     document.getElementById('export-management').addEventListener('click', exportManagementData)
@@ -1149,7 +1164,8 @@
     XLSX.writeFile(wb, `audit-trail-${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
-  // LOG AUDIT
+  // ================== LOG AUDIT ==================
+  
   async function logAudit(action, details) {
     try {
       await supabase.from('audit_logs').insert([{ user_action: action, activity: details }])
@@ -1158,7 +1174,8 @@
     }
   }
 
-  // UPDATE DASHBOARD CHARTS
+  // ================== DASHBOARD FUNCTIONS ==================
+  
   function updateDashboard() {
     const monitoringData = allData.filter(d => d.table_type === 'monitoring')
     const mgData = allData.filter(d => d.table_type === 'management')
@@ -1276,7 +1293,6 @@
     })
   }
 
-  // UPDATE CRITICAL ALERTS
   function updateCriticalAlerts() {
     const container = document.getElementById('critical-alerts')
     const monitoringData = allData.filter(d => d.table_type === 'monitoring')
@@ -1314,7 +1330,6 @@
     container.innerHTML = html
   }
 
-  // UPDATE MANAGEMENT TABLE
   function updateManagementTable() {
     if (!isAuthenticated) return
     const tbody = document.getElementById('management-table')
@@ -1340,7 +1355,6 @@
     `).join('')
   }
 
-  // UPDATE AUDIT TABLE
   function updateAuditTable() {
     if (!isAuthenticated) return
     const tbody = document.getElementById('audit-table')
@@ -1366,7 +1380,8 @@
     }).join('')
   }
 
-  // WEEKLY FUNCTIONS
+  // ================== WEEKLY FUNCTIONS ==================
+  
   function getWeekNumber(date) {
     const d = new Date(date)
     d.setHours(0, 0, 0, 0)
@@ -1581,7 +1596,8 @@
     }).join('')
   }
 
-  // CLOCK
+  // ================== CLOCK ==================
+  
   function updateClock() {
     const now = new Date()
     document.getElementById('current-time').textContent = now.toLocaleString('en-US', {
@@ -1591,6 +1607,7 @@
   }
 
   // ================== INITIALIZE ==================
+  
   async function init() {
     setupThemeToggle()
     setupNavigation()
