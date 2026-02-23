@@ -279,10 +279,19 @@
        </div>
       </div>
      </div>
-     <!-- Monitoring Table -->
+     <!-- Monitoring Table with FILTER LINE -->
      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-4">
        <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">MONITORING DATA</h3>
+       
+       <!-- FILTER LINE DROPDOWN -->
+       <div class="flex items-center gap-3">
+        <label class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">FILTER LINE:</label>
+        <select id="line-filter" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+         <option value="ALL">SEMUA LINE</option>
+        </select>
+        <span id="filtered-count" class="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-1 rounded-full font-bold"></span>
+       </div>
       </div>
       <div class="overflow-x-auto">
        <table class="w-full text-sm">
@@ -673,6 +682,9 @@
     let loadTimeout
     let isAuthenticated = false
     const MANAGEMENT_PASSWORD = 'Dankos2026'
+    
+    // FILTER LINE STATE
+    let currentLineFilter = 'ALL'
 
     // Initialize
     async function init() {
@@ -698,6 +710,15 @@
 
       // Check session
       checkAuthStatus()
+      
+      // SETUP FILTER LINE EVENT
+      const lineFilter = document.getElementById('line-filter')
+      if (lineFilter) {
+        lineFilter.addEventListener('change', (e) => {
+          currentLineFilter = e.target.value
+          updateMonitoringTable()
+        })
+      }
     }
 
     // Auto Lock Function
@@ -737,6 +758,11 @@
         isAuthenticated = false;
         sessionStorage.removeItem('ijp_auth');
         updateAuthUI();
+        
+        // RESET FILTER SAAT LOGOUT
+        currentLineFilter = 'ALL';
+        const filterSelect = document.getElementById('line-filter');
+        if (filterSelect) filterSelect.value = 'ALL';
         
         // Kembalikan ke dashboard
         showPage('dashboard');
@@ -843,6 +869,11 @@
         updateAuthUI()
         showPage('dashboard')
         
+        // RESET FILTER SAAT LOGOUT
+        currentLineFilter = 'ALL'
+        const filterSelect = document.getElementById('line-filter')
+        if (filterSelect) filterSelect.value = 'ALL'
+        
         // Reset nav to dashboard
         const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
         updateNavButtons(dashboardBtn)
@@ -923,7 +954,8 @@
 
         updateFormDropdowns()
         updateDashboard()
-        updateMonitoringTable()
+        updateLineFilterDropdown() // UPDATE DROPDOWN FILTER
+        updateMonitoringTable() // PANGGIL DENGAN FILTER YANG AKTIF
         
         // Only update management and audit tables if authenticated
         if (isAuthenticated) {
@@ -936,6 +968,33 @@
       } catch (error) {
         console.error('Error loading data:', error)
       }
+    }
+
+    // FUNGSI UNTUK UPDATE DROPDOWN FILTER LINE
+    function updateLineFilterDropdown() {
+        const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+        const lines = [...new Set(monitoringData.map(d => d.line).filter(line => line && line.trim()))].sort()
+        
+        const filterSelect = document.getElementById('line-filter')
+        const currentValue = filterSelect.value
+        
+        // Simpan pilihan sebelumnya
+        filterSelect.innerHTML = '<option value="ALL">SEMUA LINE</option>'
+        
+        lines.forEach(line => {
+            const option = document.createElement('option')
+            option.value = line
+            option.textContent = line
+            filterSelect.appendChild(option)
+        })
+        
+        // Kembalikan pilihan sebelumnya kalau masih ada
+        if (lines.includes(currentValue)) {
+            filterSelect.value = currentValue
+        } else {
+            filterSelect.value = 'ALL'
+            currentLineFilter = 'ALL'
+        }
     }
 
     // Get ISO week number
@@ -1866,57 +1925,71 @@
       updateProblemChart(monitoringData)
     }
 
-    // Update Tables
+    // Update Monitoring Table with FILTER LINE
     function updateMonitoringTable() {
-      const tbody = document.getElementById('monitoring-table')
-      const data = allData.filter(d => d.table_type === 'monitoring')
-      
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO MONITORING DATA AVAILABLE</td></tr>'
-        return
-      }
-
-      tbody.innerHTML = data.slice(0, 20).map(item => {
-        const opTime = item.cumulative_op_time || 0
-        let statusText, statusClass, statusAnimation, bgClass
+        const tbody = document.getElementById('monitoring-table')
+        let data = allData.filter(d => d.table_type === 'monitoring')
         
-        if (opTime >= 15000) {
-          statusText = 'CRITICAL - SERVICE REQUIRED'
-          statusClass = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-          statusAnimation = 'blink-critical'
-          bgClass = 'bg-red-50 dark:bg-red-900/10'
-        } else if (opTime >= 10000) {
-          statusText = 'WARNING'
-          statusClass = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-          statusAnimation = 'blink-warning'
-          bgClass = 'hover:bg-amber-50 dark:hover:bg-amber-900/20'
-        } else {
-          statusText = 'NORMAL'
-          statusClass = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-          statusAnimation = ''
-          bgClass = 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+        // APPLY FILTER LINE
+        if (currentLineFilter !== 'ALL') {
+            data = data.filter(d => d.line === currentLineFilter)
+        }
+        
+        // Update filtered count
+        const filteredCount = document.getElementById('filtered-count')
+        if (filteredCount) {
+            const totalData = allData.filter(d => d.table_type === 'monitoring').length
+            filteredCount.textContent = `${data.length}/${totalData}`
+        }
+        
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">' + 
+                (currentLineFilter !== 'ALL' ? `TIDAK ADA DATA UNTUK LINE ${currentLineFilter}` : 'NO MONITORING DATA AVAILABLE') + 
+                '</td></tr>'
+            return
         }
 
-        const conditionClass = item.ijp_condition === 'OK' 
-          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+        tbody.innerHTML = data.slice(0, 20).map(item => {
+            const opTime = item.cumulative_op_time || 0
+            let statusText, statusClass, statusAnimation, bgClass
+            
+            if (opTime >= 15000) {
+                statusText = 'CRITICAL - SERVICE REQUIRED'
+                statusClass = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                statusAnimation = 'blink-critical'
+                bgClass = 'bg-red-50 dark:bg-red-900/10'
+            } else if (opTime >= 10000) {
+                statusText = 'WARNING'
+                statusClass = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                statusAnimation = 'blink-warning'
+                bgClass = 'hover:bg-amber-50 dark:hover:bg-amber-900/20'
+            } else {
+                statusText = 'NORMAL'
+                statusClass = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                statusAnimation = ''
+                bgClass = 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }
 
-        const problemClass = item.problem_exists === 'ADA'
-          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-          : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        
-        return `
-          <tr class="${bgClass} transition-colors">
-            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
-            <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">${item.serial_number || '-'}</td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.machine || '-'}</td>
-            <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${problemClass}">${item.problem_exists || '-'}</span></td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${statusClass} ${statusAnimation}">${statusText}</span></td>
-          </tr>
-        `
-      }).join('')
+            const conditionClass = item.ijp_condition === 'OK' 
+                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+
+            const problemClass = item.problem_exists === 'ADA'
+                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+            
+            return `
+              <tr class="${bgClass} transition-colors">
+                <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
+                <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">${item.serial_number || '-'}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.machine || '-'}</td>
+                <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
+                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
+                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${problemClass}">${item.problem_exists || '-'}</span></td>
+                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${statusClass} ${statusAnimation}">${statusText}</span></td>
+              </tr>
+            `
+        }).join('')
     }
 
     function updateManagementTable() {
