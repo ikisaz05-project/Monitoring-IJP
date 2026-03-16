@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IJP MONITORING SYSTEM - WITH FILTERS (FIXED)</title>
+  <title>IJP MONITORING SYSTEM - WITH FIXED CONNECTION</title>
+  <!-- Gunakan CDN yang stable -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/+esm" type="importmap"></script>
+  <!-- Gunakan CDN yang tepat untuk Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&amp;family=Rajdhani:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
@@ -64,6 +66,20 @@
       transform: translateY(-2px);
       box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3);
     }
+    
+    /* LOADING SPINNER */
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 3px solid #10b981;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body class="h-full font-rajdhani bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -99,7 +115,8 @@
     </div>
   </header>
 
-  <!-- SECURITY NOTIFICATION -->
+  <!-- CONNECTION STATUS & SECURITY NOTIFICATION -->
+  <div id="connection-status" class="hidden"></div>
   <div id="security-notif" class="hidden bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-2 security-notif">
     <div class="flex items-center">
       <div class="flex-shrink-0"><svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></div>
@@ -120,6 +137,14 @@
 
   <!-- MAIN CONTENT -->
   <main class="flex-1 p-4 md:p-6 overflow-auto">
+    
+    <!-- LOADING OVERLAY -->
+    <div id="global-loading" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-gray-800 rounded-xl p-8 flex flex-col items-center gap-4">
+        <div class="loader"></div>
+        <p class="text-emerald-600 dark:text-emerald-400 font-bold uppercase">LOADING DATA...</p>
+      </div>
+    </div>
     
     <!-- DASHBOARD PAGE -->
     <section id="page-dashboard" class="page">
@@ -483,1342 +508,1474 @@
   </div>
 </div>
 
-<script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
-
-  // SUPABASE SETUP
-  const SUPABASE_URL = 'https://okdvksrprvhgqdyioryf.supabase.co'
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZHZrc3JwcnZoZ3FkeWlvcnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mjc5OTYsImV4cCI6MjA4NjUwMzk5Nn0.cfrGXxCgbPWpEdhBGC6RP8JonSTCjN1d6IOr4qyXSQw'
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-  // APP STATE
-  let allData = []
-  let managementData = []
-  let deleteTarget = null
-  let chartInstance = null
-  let problemChartInstance = null
-  let weeklyTrendChart = null
-  let machineComparisonChart = null
-  let loadTimeout
-  let isAuthenticated = false
-  const MANAGEMENT_PASSWORD = 'Dankos2026'
-  
-  // FILTER STATE
-  let currentLineFilter = 'ALL'
-  let currentStatusFilter = 'ALL'
-
-  // ================== HELPER FUNCTIONS ==================
-  
-  function getStatusFromOpTime(opTime) {
-    if (opTime >= 15000) return 'CRITICAL'
-    if (opTime >= 10000) return 'WARNING'
-    return 'NORMAL'
-  }
-
-  // ================== AUTH FUNCTIONS ==================
-  
-  function updateAuthUI() {
-    const authIndicator = document.getElementById('auth-indicator')
-    const authText = document.getElementById('auth-text')
-    const logoutBtn = document.getElementById('logout-btn')
-    if (isAuthenticated) {
-      authIndicator.className = 'w-2 h-2 rounded-full bg-emerald-500'
-      authText.textContent = 'LOGGED IN'
-      logoutBtn.classList.remove('hidden')
-    } else {
-      authIndicator.className = 'w-2 h-2 rounded-full bg-red-500'
-      authText.textContent = 'NOT LOGGED IN'
-      logoutBtn.classList.add('hidden')
-    }
-  }
-
-  function checkAuthStatus() {
-    const savedAuth = sessionStorage.getItem('ijp_auth')
-    isAuthenticated = savedAuth === 'true'
-    updateAuthUI()
-  }
-
-  // ================== THEME TOGGLE ==================
-  
-  function setupThemeToggle() {
-    const toggle = document.getElementById('theme-toggle')
-    const html = document.documentElement
-    const sunIcon = document.getElementById('sun-icon')
-    const moonIcon = document.getElementById('moon-icon')
-
-    const initializeTheme = () => {
-      const saved = localStorage.getItem('theme')
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      if (saved === 'dark' || (!saved && prefersDark)) {
-        html.classList.add('dark')
-        sunIcon.classList.add('hidden')
-        moonIcon.classList.remove('hidden')
-      } else {
-        html.classList.remove('dark')
-        sunIcon.classList.remove('hidden')
-        moonIcon.classList.add('hidden')
-      }
-    }
-    initializeTheme()
-
-    toggle.addEventListener('click', () => {
-      const isDark = html.classList.toggle('dark')
-      localStorage.setItem('theme', isDark ? 'dark' : 'light')
-      if (isDark) {
-        sunIcon.classList.add('hidden')
-        moonIcon.classList.remove('hidden')
-      } else {
-        sunIcon.classList.remove('hidden')
-        moonIcon.classList.add('hidden')
-      }
-    })
-  }
-
-  // ================== NAVIGATION ==================
-  
-  function setupNavigation() {
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const page = btn.dataset.nav
-        if ((page === 'management' || page === 'audit') && !isAuthenticated) {
-          document.getElementById('login-modal').classList.remove('hidden')
-          return
-        }
-        showPage(page)
-        updateNavButtons(btn)
-      })
-    })
-  }
-
-  function showPage(page) {
-    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'))
-    document.getElementById(`page-${page}`).classList.remove('hidden')
-  }
-
-  function updateNavButtons(activeBtn) {
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.classList.remove('bg-emerald-100', 'dark:bg-emerald-900/30', 'text-emerald-700', 'dark:text-emerald-400')
-      btn.classList.add('text-gray-600', 'dark:text-gray-400')
-    })
-    activeBtn.classList.add('bg-emerald-100', 'dark:bg-emerald-900/30', 'text-emerald-700', 'dark:text-emerald-400')
-    activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400')
-  }
-
-  // ================== AUTO LOCK ==================
-  
-  function setupAutoLock() {
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && isAuthenticated) forceLogout('TAB SWITCH')
-    })
-    window.addEventListener('blur', () => {
-      if (isAuthenticated) {
-        setTimeout(() => {
-          if (!document.hasFocus() && isAuthenticated) forceLogout('WINDOW BLUR')
-        }, 500)
-      }
-    })
-  }
-
-  function forceLogout(reason = 'SECURITY') {
-    if (isAuthenticated) {
-      isAuthenticated = false
-      sessionStorage.removeItem('ijp_auth')
-      updateAuthUI()
-      
-      // RESET FILTERS
-      currentLineFilter = 'ALL'
-      currentStatusFilter = 'ALL'
-      const lineFilter = document.getElementById('line-filter')
-      if (lineFilter) lineFilter.value = 'ALL'
-      const statusFilter = document.getElementById('status-filter')
-      if (statusFilter) statusFilter.value = 'ALL'
-      
-      showPage('dashboard')
-      const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
-      updateNavButtons(dashboardBtn)
-      
-      const notif = document.getElementById('security-notif')
-      notif.classList.remove('hidden')
-      const notifText = notif.querySelector('p')
-      notifText.innerHTML = reason === 'TAB SWITCH' ? '⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED DUE TO TAB SWITCH' : '⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED FOR SECURITY'
-      setTimeout(() => notif.classList.add('hidden'), 5000)
-      logAudit('AUTO-LOCK TRIGGERED', `Session terminated: ${reason}`)
-    }
-  }
-
-  // ================== LOGIN ==================
-  
-  function setupLogin() {
-    const loginModal = document.getElementById('login-modal')
-    const loginBtn = document.getElementById('login-submit')
-    const passwordInput = document.getElementById('login-password')
-    const loginError = document.getElementById('login-error')
-    const logoutBtn = document.getElementById('logout-btn')
+<script>
+  // Gunakan pendekatan yang berbeda untuk Supabase
+  (function() {
+    // Konfigurasi Supabase
+    const SUPABASE_URL = 'https://okdvksrprvhgqdyioryf.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZHZrc3JwcnZoZ3FkeWlvcnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mjc5OTYsImV4cCI6MjA4NjUwMzk5Nn0.cfrGXxCgbPWpEdhBGC6RP8JonSTCjN1d6IOr4qyXSQw'
     
-    const savedAuth = sessionStorage.getItem('ijp_auth')
-    if (savedAuth === 'true') {
-      isAuthenticated = true
-      updateAuthUI()
-    }
-
-    document.querySelector('[data-nav="management"]').addEventListener('click', (e) => {
-      e.preventDefault()
-      if (!isAuthenticated) loginModal.classList.remove('hidden')
-      else { showPage('management'); updateNavButtons(e.currentTarget) }
-    })
-
-    document.querySelector('[data-nav="audit"]').addEventListener('click', (e) => {
-      e.preventDefault()
-      if (!isAuthenticated) loginModal.classList.remove('hidden')
-      else { showPage('audit'); updateNavButtons(e.currentTarget) }
-    })
-
-    loginBtn.addEventListener('click', () => {
-      if (passwordInput.value === MANAGEMENT_PASSWORD) {
-        isAuthenticated = true
-        sessionStorage.setItem('ijp_auth', 'true')
-        loginModal.classList.add('hidden')
-        passwordInput.value = ''
-        loginError.classList.add('hidden')
-        updateAuthUI()
-        document.getElementById('security-notif').classList.add('hidden')
-        const activeNav = document.querySelector('.nav-btn.bg-emerald-100')
-        if (activeNav) showPage(activeNav.dataset.nav)
-      } else {
-        loginError.classList.remove('hidden')
-        passwordInput.value = ''
-      }
-    })
-
-    passwordInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') loginBtn.click()
-    })
-
-    logoutBtn.addEventListener('click', () => {
-      isAuthenticated = false
-      sessionStorage.removeItem('ijp_auth')
-      updateAuthUI()
-      showPage('dashboard')
-      
-      // RESET FILTERS
-      currentLineFilter = 'ALL'
-      currentStatusFilter = 'ALL'
-      const lineFilter = document.getElementById('line-filter')
-      if (lineFilter) lineFilter.value = 'ALL'
-      const statusFilter = document.getElementById('status-filter')
-      if (statusFilter) statusFilter.value = 'ALL'
-      
-      const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
-      updateNavButtons(dashboardBtn)
-      logAudit('MANUAL LOGOUT', 'User logged out manually')
-    })
-
-    loginModal.addEventListener('click', (e) => {
-      if (e.target === loginModal) {
-        loginModal.classList.add('hidden')
-        passwordInput.value = ''
-        loginError.classList.add('hidden')
-      }
-    })
-  }
-
-  // ================== LOAD DATA ==================
-  
-  async function loadAllData() {
-    try {
-      const { data: monitoringData, error: monitoringError } = await supabase
-        .from('monitoring_data').select('*').order('monitoring_date', { ascending: false })
-      if (monitoringError) throw monitoringError
-
-      const { data: mgData, error: managementError } = await supabase
-        .from('management_data').select('*').order('created_at', { ascending: false })
-      if (managementError) throw managementError
-      managementData = mgData || []
-
-      const { data: auditData, error: auditError } = await supabase
-        .from('audit_logs').select('*').order('created_at', { ascending: false })
-      if (auditError) throw auditError
-
-      allData = [
-        ...monitoringData.map(d => ({ ...d, table_type: 'monitoring' })),
-        ...mgData.map(d => ({ ...d, table_type: 'management' })),
-        ...auditData.map(d => ({ ...d, table_type: 'audit' }))
-      ]
-
-      updateFormDropdowns()
-      updateDashboard()
-      updateLineFilterDropdown()
-      updateMonitoringTable()
-      
-      if (isAuthenticated) {
-        updateManagementTable()
-        updateAuditTable()
-      }
-      
-      updateCriticalAlerts()
-      populateWeekSelector()
-    } catch (error) {
-      console.error('Error loading data:', error)
-    }
-  }
-
-  // ================== SUBSCRIBE ==================
-  
-  function subscribeToChanges() {
-    supabase.channel('monitoring_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'monitoring_data' }, () => {
-        clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
-      }).subscribe()
-    supabase.channel('management_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'management_data' }, () => {
-        clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
-      }).subscribe()
-    supabase.channel('audit_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => {
-        clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
-      }).subscribe()
-  }
-
-  // ================== FILTER FUNCTIONS ==================
-  
-  function updateLineFilterDropdown() {
-    const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-    const lines = [...new Set(monitoringData.map(d => d.line).filter(line => line && line.trim()))].sort()
-    const filterSelect = document.getElementById('line-filter')
-    const currentValue = filterSelect.value
-    filterSelect.innerHTML = '<option value="ALL">SEMUA LINE</option>'
-    lines.forEach(line => {
-      const option = document.createElement('option')
-      option.value = line
-      option.textContent = line
-      filterSelect.appendChild(option)
-    })
-    if (lines.includes(currentValue)) {
-      filterSelect.value = currentValue
-    } else {
-      filterSelect.value = 'ALL'
-      currentLineFilter = 'ALL'
-    }
-  }
-
-  function updateMonitoringTable() {
-    const tbody = document.getElementById('monitoring-table')
-    let data = allData.filter(d => d.table_type === 'monitoring')
+    // APP STATE
+    let allData = []
+    let managementData = []
+    let deleteTarget = null
+    let chartInstance = null
+    let problemChartInstance = null
+    let weeklyTrendChart = null
+    let machineComparisonChart = null
+    let loadTimeout
+    let isAuthenticated = false
+    const MANAGEMENT_PASSWORD = 'Dankos2026'
     
-    if (currentLineFilter !== 'ALL') {
-      data = data.filter(d => d.line === currentLineFilter)
-    }
+    // FILTER STATE
+    let currentLineFilter = 'ALL'
+    let currentStatusFilter = 'ALL'
     
-    if (currentStatusFilter !== 'ALL') {
-      data = data.filter(d => {
-        const status = getStatusFromOpTime(d.cumulative_op_time || 0)
-        return status === currentStatusFilter
-      })
-    }
+    // CONNECTION STATE
+    let connectionRetries = 0
+    const MAX_RETRIES = 3
+    let supabase = null
+
+    // ================== HELPER FUNCTIONS ==================
     
-    const filteredCount = document.getElementById('filtered-count')
-    if (filteredCount) {
-      const totalData = allData.filter(d => d.table_type === 'monitoring').length
-      filteredCount.textContent = `${data.length}/${totalData}`
+    function getStatusFromOpTime(opTime) {
+      if (opTime >= 15000) return 'CRITICAL'
+      if (opTime >= 10000) return 'WARNING'
+      return 'NORMAL'
     }
+
+    // ================== CONNECTION FUNCTIONS ==================
     
-    if (data.length === 0) {
-      let message = 'NO MONITORING DATA AVAILABLE'
-      if (currentLineFilter !== 'ALL' && currentStatusFilter !== 'ALL') {
-        message = `TIDAK ADA DATA UNTUK LINE ${currentLineFilter} DENGAN STATUS ${currentStatusFilter}`
-      } else if (currentLineFilter !== 'ALL') {
-        message = `TIDAK ADA DATA UNTUK LINE ${currentLineFilter}`
-      } else if (currentStatusFilter !== 'ALL') {
-        message = `TIDAK ADA DATA DENGAN STATUS ${currentStatusFilter}`
-      }
-      tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">${message}</td></tr>`
-      return
-    }
-
-    tbody.innerHTML = data.slice(0, 20).map(item => {
-      const opTime = item.cumulative_op_time || 0
-      const status = getStatusFromOpTime(opTime)
-      let statusText, statusClass, statusAnimation, bgClass
-      
-      if (status === 'CRITICAL') {
-        statusText = 'CRITICAL - SERVICE REQUIRED'
-        statusClass = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-        statusAnimation = 'blink-critical'
-        bgClass = 'bg-red-50 dark:bg-red-900/10'
-      } else if (status === 'WARNING') {
-        statusText = 'WARNING'
-        statusClass = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-        statusAnimation = 'blink-warning'
-        bgClass = 'hover:bg-amber-50 dark:hover:bg-amber-900/20'
-      } else {
-        statusText = 'NORMAL'
-        statusClass = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        statusAnimation = ''
-        bgClass = 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-      }
-
-      const conditionClass = item.ijp_condition === 'OK' 
-        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-
-      const problemClass = item.problem_exists === 'ADA'
-        ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-        : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-      
-      return `
-        <tr class="${bgClass} transition-colors">
-          <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
-          <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">${item.serial_number || '-'}</td>
-          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.machine || '-'}</td>
-          <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
-          <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${problemClass}">${item.problem_exists || '-'}</span></td>
-          <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${statusClass} ${statusAnimation}">${statusText}</span></td>
-        </tr>
-      `
-    }).join('')
-  }
-
-  // ================== FORM FUNCTIONS ==================
-  
-  function updateFormDropdowns() {
-    const machineDropdown = document.getElementById('machine_dropdown')
-    const uniqueMachines = [...new Set(managementData.map(d => d.machine_name))].sort()
-    machineDropdown.innerHTML = '<option value="">-- SELECT MACHINE --</option>'
-    uniqueMachines.forEach(machine => {
-      const option = document.createElement('option')
-      option.value = machine
-      option.textContent = machine
-      machineDropdown.appendChild(option)
-    })
-  }
-
-  // ================== SETUP FUNCTIONS ==================
-  
-  function setupForms() {
-    const problemExistsSelect = document.getElementById('problem_exists')
-    const problemSection = document.getElementById('problem-section')
-
-    document.getElementById('photo_upload').addEventListener('change', (e) => {
-      const file = e.target.files[0]
-      const preview = document.getElementById('photo-preview')
-      const filename = document.getElementById('photo-filename')
-      if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-          filename.textContent = 'ERROR: FILE SIZE EXCEEDS 5MB'
-          return
-        }
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          document.getElementById('preview-img').src = event.target.result
-          preview.classList.remove('hidden')
-          filename.textContent = `FILE: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`
-        }
-        reader.readAsDataURL(file)
-      } else {
-        preview.classList.add('hidden')
-        filename.textContent = 'NO FILE SELECTED'
-      }
-    })
-
-    problemExistsSelect.addEventListener('change', () => {
-      if (problemExistsSelect.value === 'ADA') {
-        problemSection.classList.remove('hidden')
-      } else {
-        problemSection.classList.add('hidden')
-        document.getElementById('problem_description').value = ''
-        document.getElementById('problem_action').value = ''
-        document.getElementById('photo_upload').value = ''
-        document.getElementById('photo-preview').classList.add('hidden')
-        document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
-      }
-    })
-
-    document.getElementById('monitoring-form').addEventListener('submit', async (e) => {
-      e.preventDefault()
-      const btn = document.getElementById('submit-monitoring')
-      btn.disabled = true
-      btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> SUBMITTING...'
-
+    async function initSupabase() {
       try {
-        let photoUrl = ''
-        const photoFile = document.getElementById('photo_upload').files[0]
-        const filterReplaced = document.getElementById('filter_replaced').checked
-        let finalOpTime = parseInt(document.getElementById('cumulative_op_time').value) || 0
-
-        if (photoFile && document.getElementById('problem_exists').value === 'ADA') {
-          const timestamp = Date.now()
-          const safeName = photoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(-50)
-          const filename = `ijp-photos/${timestamp}-${safeName}`
-          const { error: uploadError } = await supabase.storage.from('ijp_monitoring').upload(filename, photoFile)
-          if (!uploadError) {
-            const { data } = supabase.storage.from('ijp_monitoring').getPublicUrl(filename)
-            photoUrl = data.publicUrl
-          }
+        // Cek apakah library sudah ada
+        if (typeof supabaseJs === 'undefined' && typeof createClient === 'undefined') {
+          throw new Error('Supabase library not loaded')
         }
-
-        if (filterReplaced) finalOpTime = 0
-
-        const formData = {
-          line: document.getElementById('line').value.toUpperCase(),
-          serial_number: document.getElementById('serial_dropdown').value.toUpperCase(),
-          machine: document.getElementById('machine').value.toUpperCase(),
-          monitoring_date: document.getElementById('monitoring_date').value,
-          cumulative_op_time: finalOpTime,
-          weekly_increment: 0,
-          ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
-          problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
-          problem_description: document.getElementById('problem_description').value || '',
-          problem_action: document.getElementById('problem_action').value || '',
-          notes: document.getElementById('notes').value,
-          photo_url: photoUrl,
-          filter_replaced: filterReplaced
+        
+        // Inisialisasi supabase
+        const client = window.supabaseJs?.createClient || window.createClient
+        if (!client) {
+          throw new Error('Cannot find createClient function')
         }
-
-        const { error } = await supabase.from('monitoring_data').insert([formData])
+        
+        supabase = client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
+        // Test koneksi
+        const { error } = await supabase.from('monitoring_data').select('count', { count: 'exact', head: true })
         if (error) throw error
-
-        showFormMessage('form-success', '✓ DATA SUBMITTED SUCCESSFULLY!')
-        document.getElementById('monitoring-form').reset()
-        problemSection.classList.add('hidden')
-        document.getElementById('photo-preview').classList.add('hidden')
-        document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
-        document.getElementById('monitoring_date').value = new Date().toISOString().split('T')[0]
-
-        const filterMsg = filterReplaced ? ' - FILTER SET REPLACED, OP TIME RESET TO 0' : ''
-        await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${finalOpTime} HRS${filterMsg}`)
+        
+        console.log('✅ Supabase connected')
+        showConnectionStatus('connected')
+        return true
       } catch (error) {
-        console.error('Error:', error)
-        showFormMessage('form-success', `ERROR: ${error.message}`, true)
-      } finally {
-        btn.disabled = false
-        btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> SUBMIT DATA'
+        console.error('❌ Supabase connection failed:', error)
+        showConnectionStatus('disconnected')
+        return false
       }
-    })
+    }
 
-    document.getElementById('management-form').addEventListener('submit', async (e) => {
-      e.preventDefault()
-      if (!isAuthenticated) {
-        document.getElementById('login-modal').classList.remove('hidden')
+    function showConnectionStatus(status, message = '') {
+      const statusDiv = document.getElementById('connection-status')
+      if (!statusDiv) return
+      
+      statusDiv.classList.remove('hidden')
+      
+      if (status === 'connected') {
+        statusDiv.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-2xl border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 animate-slideDown'
+        statusDiv.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">✅</span>
+            <p class="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase">TERKONEKSI KE DATABASE</p>
+          </div>
+        `
+        setTimeout(() => statusDiv.classList.add('hidden'), 3000)
+      } else {
+        statusDiv.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl border-l-4 border-red-500 bg-red-50 dark:bg-red-900/30 animate-slideDown'
+        statusDiv.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🔴</span>
+            <div>
+              <p class="text-sm font-bold text-red-700 dark:text-red-400 uppercase">GAGAL TERKONEKSI KE DATABASE</p>
+              <p class="text-xs text-red-600 dark:text-red-300 mt-1">${message || 'Periksa koneksi internet Anda'}</p>
+              <button onclick="window.location.reload()" class="mt-3 px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg uppercase hover:bg-red-600 transition-all w-full">
+                COBA LAGI
+              </button>
+            </div>
+          </div>
+        `
+      }
+    }
+
+    // ================== AUTH FUNCTIONS ==================
+    
+    function updateAuthUI() {
+      const authIndicator = document.getElementById('auth-indicator')
+      const authText = document.getElementById('auth-text')
+      const logoutBtn = document.getElementById('logout-btn')
+      if (isAuthenticated) {
+        authIndicator.className = 'w-2 h-2 rounded-full bg-emerald-500'
+        authText.textContent = 'LOGGED IN'
+        logoutBtn.classList.remove('hidden')
+      } else {
+        authIndicator.className = 'w-2 h-2 rounded-full bg-red-500'
+        authText.textContent = 'NOT LOGGED IN'
+        logoutBtn.classList.add('hidden')
+      }
+    }
+
+    function checkAuthStatus() {
+      const savedAuth = sessionStorage.getItem('ijp_auth')
+      isAuthenticated = savedAuth === 'true'
+      updateAuthUI()
+    }
+
+    // ================== THEME TOGGLE ==================
+    
+    function setupThemeToggle() {
+      const toggle = document.getElementById('theme-toggle')
+      const html = document.documentElement
+      const sunIcon = document.getElementById('sun-icon')
+      const moonIcon = document.getElementById('moon-icon')
+
+      const initializeTheme = () => {
+        const saved = localStorage.getItem('theme')
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          html.classList.add('dark')
+          sunIcon.classList.add('hidden')
+          moonIcon.classList.remove('hidden')
+        } else {
+          html.classList.remove('dark')
+          sunIcon.classList.remove('hidden')
+          moonIcon.classList.add('hidden')
+        }
+      }
+      initializeTheme()
+
+      toggle.addEventListener('click', () => {
+        const isDark = html.classList.toggle('dark')
+        localStorage.setItem('theme', isDark ? 'dark' : 'light')
+        if (isDark) {
+          sunIcon.classList.add('hidden')
+          moonIcon.classList.remove('hidden')
+        } else {
+          sunIcon.classList.remove('hidden')
+          moonIcon.classList.add('hidden')
+        }
+      })
+    }
+
+    // ================== NAVIGATION ==================
+    
+    function setupNavigation() {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const page = btn.dataset.nav
+          if ((page === 'management' || page === 'audit') && !isAuthenticated) {
+            document.getElementById('login-modal').classList.remove('hidden')
+            return
+          }
+          showPage(page)
+          updateNavButtons(btn)
+        })
+      })
+    }
+
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'))
+      document.getElementById(`page-${page}`).classList.remove('hidden')
+    }
+
+    function updateNavButtons(activeBtn) {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-emerald-100', 'dark:bg-emerald-900/30', 'text-emerald-700', 'dark:text-emerald-400')
+        btn.classList.add('text-gray-600', 'dark:text-gray-400')
+      })
+      activeBtn.classList.add('bg-emerald-100', 'dark:bg-emerald-900/30', 'text-emerald-700', 'dark:text-emerald-400')
+      activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400')
+    }
+
+    // ================== AUTO LOCK ==================
+    
+    function setupAutoLock() {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && isAuthenticated) forceLogout('TAB SWITCH')
+      })
+      window.addEventListener('blur', () => {
+        if (isAuthenticated) {
+          setTimeout(() => {
+            if (!document.hasFocus() && isAuthenticated) forceLogout('WINDOW BLUR')
+          }, 500)
+        }
+      })
+    }
+
+    function forceLogout(reason = 'SECURITY') {
+      if (isAuthenticated) {
+        isAuthenticated = false
+        sessionStorage.removeItem('ijp_auth')
+        updateAuthUI()
+        
+        // RESET FILTERS
+        currentLineFilter = 'ALL'
+        currentStatusFilter = 'ALL'
+        const lineFilter = document.getElementById('line-filter')
+        if (lineFilter) lineFilter.value = 'ALL'
+        const statusFilter = document.getElementById('status-filter')
+        if (statusFilter) statusFilter.value = 'ALL'
+        
+        showPage('dashboard')
+        const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
+        updateNavButtons(dashboardBtn)
+        
+        const notif = document.getElementById('security-notif')
+        notif.classList.remove('hidden')
+        const notifText = notif.querySelector('p')
+        notifText.innerHTML = reason === 'TAB SWITCH' ? '⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED DUE TO TAB SWITCH' : '⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED FOR SECURITY'
+        setTimeout(() => notif.classList.add('hidden'), 5000)
+        logAudit('AUTO-LOCK TRIGGERED', `Session terminated: ${reason}`)
+      }
+    }
+
+    // ================== LOGIN ==================
+    
+    function setupLogin() {
+      const loginModal = document.getElementById('login-modal')
+      const loginBtn = document.getElementById('login-submit')
+      const passwordInput = document.getElementById('login-password')
+      const loginError = document.getElementById('login-error')
+      const logoutBtn = document.getElementById('logout-btn')
+      
+      const savedAuth = sessionStorage.getItem('ijp_auth')
+      if (savedAuth === 'true') {
+        isAuthenticated = true
+        updateAuthUI()
+      }
+
+      document.querySelector('[data-nav="management"]').addEventListener('click', (e) => {
+        e.preventDefault()
+        if (!isAuthenticated) loginModal.classList.remove('hidden')
+        else { showPage('management'); updateNavButtons(e.currentTarget) }
+      })
+
+      document.querySelector('[data-nav="audit"]').addEventListener('click', (e) => {
+        e.preventDefault()
+        if (!isAuthenticated) loginModal.classList.remove('hidden')
+        else { showPage('audit'); updateNavButtons(e.currentTarget) }
+      })
+
+      loginBtn.addEventListener('click', () => {
+        if (passwordInput.value === MANAGEMENT_PASSWORD) {
+          isAuthenticated = true
+          sessionStorage.setItem('ijp_auth', 'true')
+          loginModal.classList.add('hidden')
+          passwordInput.value = ''
+          loginError.classList.add('hidden')
+          updateAuthUI()
+          document.getElementById('security-notif').classList.add('hidden')
+          const activeNav = document.querySelector('.nav-btn.bg-emerald-100')
+          if (activeNav) showPage(activeNav.dataset.nav)
+        } else {
+          loginError.classList.remove('hidden')
+          passwordInput.value = ''
+        }
+      })
+
+      passwordInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginBtn.click()
+      })
+
+      logoutBtn.addEventListener('click', () => {
+        isAuthenticated = false
+        sessionStorage.removeItem('ijp_auth')
+        updateAuthUI()
+        showPage('dashboard')
+        
+        // RESET FILTERS
+        currentLineFilter = 'ALL'
+        currentStatusFilter = 'ALL'
+        const lineFilter = document.getElementById('line-filter')
+        if (lineFilter) lineFilter.value = 'ALL'
+        const statusFilter = document.getElementById('status-filter')
+        if (statusFilter) statusFilter.value = 'ALL'
+        
+        const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
+        updateNavButtons(dashboardBtn)
+        logAudit('MANUAL LOGOUT', 'User logged out manually')
+      })
+
+      loginModal.addEventListener('click', (e) => {
+        if (e.target === loginModal) {
+          loginModal.classList.add('hidden')
+          passwordInput.value = ''
+          loginError.classList.add('hidden')
+        }
+      })
+    }
+
+    // ================== LOAD DATA ==================
+    
+    async function loadAllData() {
+      if (!supabase) {
+        showConnectionStatus('disconnected', 'Supabase not initialized')
+        return
+      }
+      
+      try {
+        // Cek koneksi
+        const { error: testError } = await supabase.from('monitoring_data').select('count', { count: 'exact', head: true })
+        if (testError) throw testError
+
+        // Load monitoring data
+        const { data: monitoringData, error: monitoringError } = await supabase
+          .from('monitoring_data').select('*').order('monitoring_date', { ascending: false })
+        if (monitoringError) throw monitoringError
+
+        // Load management data
+        const { data: mgData, error: managementError } = await supabase
+          .from('management_data').select('*').order('created_at', { ascending: false })
+        if (managementError) throw managementError
+        managementData = mgData || []
+
+        // Load audit data
+        const { data: auditData, error: auditError } = await supabase
+          .from('audit_logs').select('*').order('created_at', { ascending: false })
+        if (auditError) throw auditError
+
+        allData = [
+          ...monitoringData.map(d => ({ ...d, table_type: 'monitoring' })),
+          ...mgData.map(d => ({ ...d, table_type: 'management' })),
+          ...auditData.map(d => ({ ...d, table_type: 'audit' }))
+        ]
+
+        // Update UI
+        updateFormDropdowns()
+        updateDashboard()
+        updateLineFilterDropdown()
+        updateMonitoringTable()
+        
+        if (isAuthenticated) {
+          updateManagementTable()
+          updateAuditTable()
+        }
+        
+        updateCriticalAlerts()
+        populateWeekSelector()
+        
+        // Reset connection retries on success
+        connectionRetries = 0
+        
+      } catch (error) {
+        console.error('Error loading data:', error)
+        
+        if (connectionRetries < MAX_RETRIES) {
+          connectionRetries++
+          const delay = Math.pow(2, connectionRetries) * 1000
+          showConnectionStatus('disconnected', `Mencoba lagi dalam ${delay/1000} detik... (${connectionRetries}/${MAX_RETRIES})`)
+          setTimeout(loadAllData, delay)
+        } else {
+          showConnectionStatus('disconnected', 'Tidak dapat terhubung ke database. Periksa koneksi internet Anda.')
+        }
+      }
+    }
+
+    // ================== SUBSCRIBE ==================
+    
+    function subscribeToChanges() {
+      if (!supabase) return
+      
+      try {
+        supabase.channel('monitoring_changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'monitoring_data' }, () => {
+            clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
+          }).subscribe()
+          
+        supabase.channel('management_changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'management_data' }, () => {
+            clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
+          }).subscribe()
+          
+        supabase.channel('audit_changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => {
+            clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
+          }).subscribe()
+          
+      } catch (error) {
+        console.error('Subscribe error:', error)
+      }
+    }
+
+    // ================== FILTER FUNCTIONS ==================
+    
+    function updateLineFilterDropdown() {
+      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+      const lines = [...new Set(monitoringData.map(d => d.line).filter(line => line && line.trim()))].sort()
+      const filterSelect = document.getElementById('line-filter')
+      const currentValue = filterSelect.value
+      filterSelect.innerHTML = '<option value="ALL">SEMUA LINE</option>'
+      lines.forEach(line => {
+        const option = document.createElement('option')
+        option.value = line
+        option.textContent = line
+        filterSelect.appendChild(option)
+      })
+      if (lines.includes(currentValue)) {
+        filterSelect.value = currentValue
+      } else {
+        filterSelect.value = 'ALL'
+        currentLineFilter = 'ALL'
+      }
+    }
+
+    function updateMonitoringTable() {
+      const tbody = document.getElementById('monitoring-table')
+      let data = allData.filter(d => d.table_type === 'monitoring')
+      
+      if (currentLineFilter !== 'ALL') {
+        data = data.filter(d => d.line === currentLineFilter)
+      }
+      
+      if (currentStatusFilter !== 'ALL') {
+        data = data.filter(d => {
+          const status = getStatusFromOpTime(d.cumulative_op_time || 0)
+          return status === currentStatusFilter
+        })
+      }
+      
+      const filteredCount = document.getElementById('filtered-count')
+      if (filteredCount) {
+        const totalData = allData.filter(d => d.table_type === 'monitoring').length
+        filteredCount.textContent = `${data.length}/${totalData}`
+      }
+      
+      if (data.length === 0) {
+        let message = 'NO MONITORING DATA AVAILABLE'
+        if (currentLineFilter !== 'ALL' && currentStatusFilter !== 'ALL') {
+          message = `TIDAK ADA DATA UNTUK LINE ${currentLineFilter} DENGAN STATUS ${currentStatusFilter}`
+        } else if (currentLineFilter !== 'ALL') {
+          message = `TIDAK ADA DATA UNTUK LINE ${currentLineFilter}`
+        } else if (currentStatusFilter !== 'ALL') {
+          message = `TIDAK ADA DATA DENGAN STATUS ${currentStatusFilter}`
+        }
+        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">${message}</td></tr>`
         return
       }
 
-      const btn = document.getElementById('submit-management')
-      btn.disabled = true
-      btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> UPLOADING...'
-
-      const formData = {
-        machine_name: document.getElementById('machine_name').value.toUpperCase(),
-        line: document.getElementById('line_mg').value.toUpperCase(),
-        serial_number: document.getElementById('service').value.toUpperCase()
-      }
-
-      try {
-        const { error } = await supabase.from('management_data').insert([formData])
-        if (error) throw error
-        document.getElementById('management-form').reset()
-        showFormMessage('management-success', '✓ DATA UPLOADED SUCCESSFULLY!')
-        await logAudit('IJP REGISTERED', `MACHINE: ${formData.machine_name}`)
-      } catch (error) {
-        console.error('Error:', error)
-        showFormMessage('management-success', `ERROR: ${error.message}`, true)
-      } finally {
-        btn.disabled = false
-        btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg> UPLOAD DATA'
-      }
-    })
-
-    document.getElementById('machine_dropdown').addEventListener('change', function() {
-      const selectedMachine = this.value
-      const serialDropdown = document.getElementById('serial_dropdown')
-      const editBtn = document.getElementById('edit-serial-btn')
-      if (selectedMachine) {
-        const machineRecords = managementData.filter(d => d.machine_name === selectedMachine)
-        serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
-        machineRecords.forEach(record => {
-          const option = document.createElement('option')
-          option.value = record.serial_number
-          option.dataset.line = record.line
-          option.dataset.id = record.id
-          option.textContent = record.serial_number
-          serialDropdown.appendChild(option)
-        })
-        document.getElementById('machine').value = selectedMachine
-        editBtn.classList.remove('hidden')
-        document.getElementById('line').value = ''
-        serialDropdown.value = ''
-      } else {
-        serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
-        document.getElementById('line').value = ''
-        document.getElementById('machine').value = ''
-        editBtn.classList.add('hidden')
-      }
-    })
-
-    document.getElementById('serial_dropdown').addEventListener('change', function() {
-      if (this.value) {
-        const selectedOption = this.options[this.selectedIndex]
-        document.getElementById('line').value = selectedOption.dataset.line || ''
-      } else {
-        document.getElementById('line').value = ''
-      }
-    })
-  }
-
-  function showFormMessage(elementId, message, isError = false) {
-    const el = document.getElementById(elementId)
-    el.innerHTML = `<p class="${isError ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'} font-semibold uppercase">${message}</p>`
-    el.classList.remove('hidden')
-    setTimeout(() => el.classList.add('hidden'), 3000)
-  }
-
-  // ================== DELETE MODAL ==================
-  
-  function setupDeleteModal() {
-    document.getElementById('cancel-delete').addEventListener('click', () => {
-      document.getElementById('delete-modal').classList.add('hidden')
-      deleteTarget = null
-    })
-
-    document.getElementById('confirm-delete').addEventListener('click', async () => {
-      if (deleteTarget) {
-        if (!isAuthenticated) {
-          document.getElementById('login-modal').classList.remove('hidden')
-          document.getElementById('delete-modal').classList.add('hidden')
-          return
+      tbody.innerHTML = data.slice(0, 20).map(item => {
+        const opTime = item.cumulative_op_time || 0
+        const status = getStatusFromOpTime(opTime)
+        let statusText, statusClass, statusAnimation, bgClass
+        
+        if (status === 'CRITICAL') {
+          statusText = 'CRITICAL - SERVICE REQUIRED'
+          statusClass = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+          statusAnimation = 'blink-critical'
+          bgClass = 'bg-red-50 dark:bg-red-900/10'
+        } else if (status === 'WARNING') {
+          statusText = 'WARNING'
+          statusClass = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+          statusAnimation = 'blink-warning'
+          bgClass = 'hover:bg-amber-50 dark:hover:bg-amber-900/20'
+        } else {
+          statusText = 'NORMAL'
+          statusClass = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+          statusAnimation = ''
+          bgClass = 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
         }
 
-        const btn = document.getElementById('confirm-delete')
+        const conditionClass = item.ijp_condition === 'OK' 
+          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+
+        const problemClass = item.problem_exists === 'ADA'
+          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+          : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+        
+        return `
+          <tr class="${bgClass} transition-colors">
+            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
+            <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">${item.serial_number || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.machine || '-'}</td>
+            <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
+            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${problemClass}">${item.problem_exists || '-'}</span></td>
+            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${statusClass} ${statusAnimation}">${statusText}</span></td>
+          </tr>
+        `
+      }).join('')
+    }
+
+    // ================== FORM FUNCTIONS ==================
+    
+    function updateFormDropdowns() {
+      const machineDropdown = document.getElementById('machine_dropdown')
+      const uniqueMachines = [...new Set(managementData.map(d => d.machine_name))].sort()
+      machineDropdown.innerHTML = '<option value="">-- SELECT MACHINE --</option>'
+      uniqueMachines.forEach(machine => {
+        const option = document.createElement('option')
+        option.value = machine
+        option.textContent = machine
+        machineDropdown.appendChild(option)
+      })
+    }
+
+    // ================== SETUP FUNCTIONS ==================
+    
+    function setupForms() {
+      const problemExistsSelect = document.getElementById('problem_exists')
+      const problemSection = document.getElementById('problem-section')
+
+      document.getElementById('photo_upload').addEventListener('change', (e) => {
+        const file = e.target.files[0]
+        const preview = document.getElementById('photo-preview')
+        const filename = document.getElementById('photo-filename')
+        if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+            filename.textContent = 'ERROR: FILE SIZE EXCEEDS 5MB'
+            return
+          }
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            document.getElementById('preview-img').src = event.target.result
+            preview.classList.remove('hidden')
+            filename.textContent = `FILE: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+          }
+          reader.readAsDataURL(file)
+        } else {
+          preview.classList.add('hidden')
+          filename.textContent = 'NO FILE SELECTED'
+        }
+      })
+
+      problemExistsSelect.addEventListener('change', () => {
+        if (problemExistsSelect.value === 'ADA') {
+          problemSection.classList.remove('hidden')
+        } else {
+          problemSection.classList.add('hidden')
+          document.getElementById('problem_description').value = ''
+          document.getElementById('problem_action').value = ''
+          document.getElementById('photo_upload').value = ''
+          document.getElementById('photo-preview').classList.add('hidden')
+          document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
+        }
+      })
+
+      document.getElementById('monitoring-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        if (!supabase) {
+          showFormMessage('form-success', 'ERROR: Database tidak terhubung', true)
+          return
+        }
+        
+        const btn = document.getElementById('submit-monitoring')
         btn.disabled = true
-        btn.textContent = 'DELETING...'
+        btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> SUBMITTING...'
 
         try {
-          const { error } = await supabase.from('management_data').delete().eq('id', deleteTarget.id)
+          let photoUrl = ''
+          const photoFile = document.getElementById('photo_upload').files[0]
+          const filterReplaced = document.getElementById('filter_replaced').checked
+          let finalOpTime = parseInt(document.getElementById('cumulative_op_time').value) || 0
+
+          if (photoFile && document.getElementById('problem_exists').value === 'ADA') {
+            const timestamp = Date.now()
+            const safeName = photoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(-50)
+            const filename = `ijp-photos/${timestamp}-${safeName}`
+            const { error: uploadError } = await supabase.storage.from('ijp_monitoring').upload(filename, photoFile)
+            if (!uploadError) {
+              const { data } = supabase.storage.from('ijp_monitoring').getPublicUrl(filename)
+              photoUrl = data.publicUrl
+            }
+          }
+
+          if (filterReplaced) finalOpTime = 0
+
+          const formData = {
+            line: document.getElementById('line').value.toUpperCase(),
+            serial_number: document.getElementById('serial_dropdown').value.toUpperCase(),
+            machine: document.getElementById('machine').value.toUpperCase(),
+            monitoring_date: document.getElementById('monitoring_date').value,
+            cumulative_op_time: finalOpTime,
+            weekly_increment: 0,
+            ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
+            problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
+            problem_description: document.getElementById('problem_description').value || '',
+            problem_action: document.getElementById('problem_action').value || '',
+            notes: document.getElementById('notes').value,
+            photo_url: photoUrl,
+            filter_replaced: filterReplaced
+          }
+
+          const { error } = await supabase.from('monitoring_data').insert([formData])
           if (error) throw error
-          await logAudit('RECORD DELETED', `ID: ${deleteTarget.id}`)
+
+          showFormMessage('form-success', '✓ DATA SUBMITTED SUCCESSFULLY!')
+          document.getElementById('monitoring-form').reset()
+          problemSection.classList.add('hidden')
+          document.getElementById('photo-preview').classList.add('hidden')
+          document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
+          document.getElementById('monitoring_date').value = new Date().toISOString().split('T')[0]
+
+          const filterMsg = filterReplaced ? ' - FILTER SET REPLACED, OP TIME RESET TO 0' : ''
+          await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${finalOpTime} HRS${filterMsg}`)
         } catch (error) {
           console.error('Error:', error)
           showFormMessage('form-success', `ERROR: ${error.message}`, true)
         } finally {
           btn.disabled = false
-          btn.textContent = 'DELETE'
-          document.getElementById('delete-modal').classList.add('hidden')
-          deleteTarget = null
+          btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> SUBMIT DATA'
         }
+      })
+
+      document.getElementById('management-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        if (!isAuthenticated) {
+          document.getElementById('login-modal').classList.remove('hidden')
+          return
+        }
+
+        if (!supabase) {
+          showFormMessage('management-success', 'ERROR: Database tidak terhubung', true)
+          return
+        }
+
+        const btn = document.getElementById('submit-management')
+        btn.disabled = true
+        btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> UPLOADING...'
+
+        const formData = {
+          machine_name: document.getElementById('machine_name').value.toUpperCase(),
+          line: document.getElementById('line_mg').value.toUpperCase(),
+          serial_number: document.getElementById('service').value.toUpperCase()
+        }
+
+        try {
+          const { error } = await supabase.from('management_data').insert([formData])
+          if (error) throw error
+          document.getElementById('management-form').reset()
+          showFormMessage('management-success', '✓ DATA UPLOADED SUCCESSFULLY!')
+          await logAudit('IJP REGISTERED', `MACHINE: ${formData.machine_name}`)
+        } catch (error) {
+          console.error('Error:', error)
+          showFormMessage('management-success', `ERROR: ${error.message}`, true)
+        } finally {
+          btn.disabled = false
+          btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg> UPLOAD DATA'
+        }
+      })
+
+      document.getElementById('machine_dropdown').addEventListener('change', function() {
+        const selectedMachine = this.value
+        const serialDropdown = document.getElementById('serial_dropdown')
+        const editBtn = document.getElementById('edit-serial-btn')
+        if (selectedMachine) {
+          const machineRecords = managementData.filter(d => d.machine_name === selectedMachine)
+          serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
+          machineRecords.forEach(record => {
+            const option = document.createElement('option')
+            option.value = record.serial_number
+            option.dataset.line = record.line
+            option.dataset.id = record.id
+            option.textContent = record.serial_number
+            serialDropdown.appendChild(option)
+          })
+          document.getElementById('machine').value = selectedMachine
+          editBtn.classList.remove('hidden')
+          document.getElementById('line').value = ''
+          serialDropdown.value = ''
+        } else {
+          serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
+          document.getElementById('line').value = ''
+          document.getElementById('machine').value = ''
+          editBtn.classList.add('hidden')
+        }
+      })
+
+      document.getElementById('serial_dropdown').addEventListener('change', function() {
+        if (this.value) {
+          const selectedOption = this.options[this.selectedIndex]
+          document.getElementById('line').value = selectedOption.dataset.line || ''
+        } else {
+          document.getElementById('line').value = ''
+        }
+      })
+    }
+
+    function showFormMessage(elementId, message, isError = false) {
+      const el = document.getElementById(elementId)
+      el.innerHTML = `<p class="${isError ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'} font-semibold uppercase">${message}</p>`
+      el.classList.remove('hidden')
+      setTimeout(() => el.classList.add('hidden'), 3000)
+    }
+
+    // ================== DELETE MODAL ==================
+    
+    function setupDeleteModal() {
+      document.getElementById('cancel-delete').addEventListener('click', () => {
+        document.getElementById('delete-modal').classList.add('hidden')
+        deleteTarget = null
+      })
+
+      document.getElementById('confirm-delete').addEventListener('click', async () => {
+        if (deleteTarget) {
+          if (!isAuthenticated) {
+            document.getElementById('login-modal').classList.remove('hidden')
+            document.getElementById('delete-modal').classList.add('hidden')
+            return
+          }
+
+          if (!supabase) {
+            showFormMessage('form-success', 'ERROR: Database tidak terhubung', true)
+            return
+          }
+
+          const btn = document.getElementById('confirm-delete')
+          btn.disabled = true
+          btn.textContent = 'DELETING...'
+
+          try {
+            const { error } = await supabase.from('management_data').delete().eq('id', deleteTarget.id)
+            if (error) throw error
+            await logAudit('RECORD DELETED', `ID: ${deleteTarget.id}`)
+          } catch (error) {
+            console.error('Error:', error)
+            showFormMessage('form-success', `ERROR: ${error.message}`, true)
+          } finally {
+            btn.disabled = false
+            btn.textContent = 'DELETE'
+            document.getElementById('delete-modal').classList.add('hidden')
+            deleteTarget = null
+          }
+        }
+      })
+    }
+
+    window.showDeleteModal = (record) => {
+      if (!isAuthenticated) {
+        document.getElementById('login-modal').classList.remove('hidden')
+        return
       }
-    })
-  }
-
-  window.showDeleteModal = (record) => {
-    if (!isAuthenticated) {
-      document.getElementById('login-modal').classList.remove('hidden')
-      return
-    }
-    deleteTarget = record
-    document.getElementById('delete-modal').classList.remove('hidden')
-  }
-
-  window.goToManagement = () => {
-    if (!isAuthenticated) {
-      document.getElementById('login-modal').classList.remove('hidden')
-      return
-    }
-    showPage('management')
-    const managementBtn = document.querySelector('[data-nav="management"]')
-    updateNavButtons(managementBtn)
-  }
-
-  window.saveSerialNumber = async (id, btn) => {
-    if (!isAuthenticated) {
-      document.getElementById('login-modal').classList.remove('hidden')
-      return
+      deleteTarget = record
+      document.getElementById('delete-modal').classList.remove('hidden')
     }
 
-    const input = document.querySelector(`input[data-id="${id}"]`)
-    const newSerial = input.value.toUpperCase()
-    const originalSerial = input.dataset.original
-
-    if (!newSerial.trim()) {
-      showFormMessage('form-success', 'ERROR: SERIAL NUMBER TIDAK BOLEH KOSONG', true)
-      input.value = originalSerial
-      return
+    window.goToManagement = () => {
+      if (!isAuthenticated) {
+        document.getElementById('login-modal').classList.remove('hidden')
+        return
+      }
+      showPage('management')
+      const managementBtn = document.querySelector('[data-nav="management"]')
+      updateNavButtons(managementBtn)
     }
 
-    if (newSerial === originalSerial) return
+    window.saveSerialNumber = async (id, btn) => {
+      if (!isAuthenticated) {
+        document.getElementById('login-modal').classList.remove('hidden')
+        return
+      }
 
-    btn.disabled = true
-    btn.textContent = '...'
+      if (!supabase) {
+        showFormMessage('form-success', 'ERROR: Database tidak terhubung', true)
+        return
+      }
 
-    try {
-      const { error } = await supabase.from('management_data').update({ serial_number: newSerial }).eq('id', id)
-      if (error) throw error
-      input.dataset.original = newSerial
-      await logAudit('SERIAL NUMBER UPDATED', `ID: ${id}, NEW SERIAL: ${newSerial}`)
-      showFormMessage('form-success', '✓ SERIAL NUMBER UPDATED!')
-    } catch (error) {
-      console.error('Error:', error)
-      input.value = originalSerial
-      showFormMessage('form-success', `ERROR: ${error.message}`, true)
-    } finally {
-      btn.disabled = false
-      btn.textContent = '✓'
+      const input = document.querySelector(`input[data-id="${id}"]`)
+      const newSerial = input.value.toUpperCase()
+      const originalSerial = input.dataset.original
+
+      if (!newSerial.trim()) {
+        showFormMessage('form-success', 'ERROR: SERIAL NUMBER TIDAK BOLEH KOSONG', true)
+        input.value = originalSerial
+        return
+      }
+
+      if (newSerial === originalSerial) return
+
+      btn.disabled = true
+      btn.textContent = '...'
+
+      try {
+        const { error } = await supabase.from('management_data').update({ serial_number: newSerial }).eq('id', id)
+        if (error) throw error
+        input.dataset.original = newSerial
+        await logAudit('SERIAL NUMBER UPDATED', `ID: ${id}, NEW SERIAL: ${newSerial}`)
+        showFormMessage('form-success', '✓ SERIAL NUMBER UPDATED!')
+      } catch (error) {
+        console.error('Error:', error)
+        input.value = originalSerial
+        showFormMessage('form-success', `ERROR: ${error.message}`, true)
+      } finally {
+        btn.disabled = false
+        btn.textContent = '✓'
+      }
     }
-  }
 
-  // ================== EXPORT FUNCTIONS ==================
-  
-  function setupExportButtons() {
-    document.getElementById('export-monitoring').addEventListener('click', exportMonitoringData)
-    document.getElementById('export-management').addEventListener('click', exportManagementData)
-    document.getElementById('export-audit').addEventListener('click', exportAuditData)
-  }
-
-  function exportMonitoringData() {
-    const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-    if (monitoringData.length === 0) {
-      showFormMessage('form-success', 'NO MONITORING DATA TO EXPORT', true)
-      return
-    }
-    const wsData = monitoringData.map(item => ({
-      'DATE': item.monitoring_date || '-',
-      'LINE': item.line || '-',
-      'SERIAL NUMBER': item.serial_number || '-',
-      'MACHINE': item.machine || '-',
-      'CUMULATIVE OP TIME (HOURS)': item.cumulative_op_time || 0,
-      'FILTER REPLACED': item.filter_replaced ? 'YES' : 'NO',
-      'KONDISI IJP': item.ijp_condition || '-',
-      'PROBLEM': item.problem_exists || '-',
-      'DESKRIPSI': item.problem_description || '-',
-      'ACTION': item.problem_action || '-',
-      'NOTES': item.notes || '-',
-      'PHOTO': item.photo_url ? 'YES' : 'NO'
-    }))
-    const ws = XLSX.utils.json_to_sheet(wsData)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Monitoring Data')
-    XLSX.writeFile(wb, `monitoring-data-${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  function exportManagementData() {
-    if (!isAuthenticated) {
-      document.getElementById('login-modal').classList.remove('hidden')
-      return
-    }
-    const mgData = allData.filter(d => d.table_type === 'management')
-    if (mgData.length === 0) {
-      showFormMessage('form-success', 'NO MANAGEMENT DATA TO EXPORT', true)
-      return
-    }
-    const wsData = mgData.map(item => ({
-      'NAMA MESIN': item.machine_name || '-',
-      'LINE': item.line || '-',
-      'SERIAL NUMBER IJP': item.serial_number || '-',
-      'TIMESTAMP': new Date(item.created_at).toLocaleString()
-    }))
-    const ws = XLSX.utils.json_to_sheet(wsData)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Management Data')
-    XLSX.writeFile(wb, `management-data-${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  function exportAuditData() {
-    if (!isAuthenticated) {
-      document.getElementById('login-modal').classList.remove('hidden')
-      return
-    }
-    const auditData = allData.filter(d => d.table_type === 'audit')
-    if (auditData.length === 0) {
-      showFormMessage('form-success', 'NO AUDIT DATA TO EXPORT', true)
-      return
-    }
-    const wsData = auditData.map(item => ({
-      'TIMESTAMP': new Date(item.created_at).toLocaleString(),
-      'ACTION': item.user_action || '-',
-      'DETAILS': item.activity || '-'
-    }))
-    const ws = XLSX.utils.json_to_sheet(wsData)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Audit Trail')
-    XLSX.writeFile(wb, `audit-trail-${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  // ================== LOG AUDIT ==================
-  
-  async function logAudit(action, details) {
-    try {
-      await supabase.from('audit_logs').insert([{ user_action: action, activity: details }])
-    } catch (error) {
-      console.error('Error logging audit:', error)
-    }
-  }
-
-  // ================== DASHBOARD FUNCTIONS ==================
-  
-  function updateDashboard() {
-    const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-    const mgData = allData.filter(d => d.table_type === 'management')
-    const problemsCount = monitoringData.filter(d => d.problem_exists === 'ADA').length
-    const normalCount = monitoringData.filter(d => d.problem_exists === 'TIDAK ADA').length
-    const total = problemsCount + normalCount
+    // ================== EXPORT FUNCTIONS ==================
     
-    // Update stats cards
-    document.getElementById('stat-total').textContent = mgData.length
-    document.getElementById('stat-active').textContent = monitoringData.length
-    document.getElementById('stat-problems').textContent = problemsCount
-    const lines = new Set(monitoringData.map(d => d.line))
-    document.getElementById('stat-lines').textContent = lines.size
+    function setupExportButtons() {
+      document.getElementById('export-monitoring').addEventListener('click', exportMonitoringData)
+      document.getElementById('export-management').addEventListener('click', exportManagementData)
+      document.getElementById('export-audit').addEventListener('click', exportAuditData)
+    }
 
-    // Update problem summary stats dengan persentase
-    const problemPercent = total > 0 ? ((problemsCount / total) * 100).toFixed(1) : 0
-    const normalPercent = total > 0 ? ((normalCount / total) * 100).toFixed(1) : 0
+    function exportMonitoringData() {
+      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+      if (monitoringData.length === 0) {
+        showFormMessage('form-success', 'NO MONITORING DATA TO EXPORT', true)
+        return
+      }
+      const wsData = monitoringData.map(item => ({
+        'DATE': item.monitoring_date || '-',
+        'LINE': item.line || '-',
+        'SERIAL NUMBER': item.serial_number || '-',
+        'MACHINE': item.machine || '-',
+        'CUMULATIVE OP TIME (HOURS)': item.cumulative_op_time || 0,
+        'FILTER REPLACED': item.filter_replaced ? 'YES' : 'NO',
+        'KONDISI IJP': item.ijp_condition || '-',
+        'PROBLEM': item.problem_exists || '-',
+        'DESKRIPSI': item.problem_description || '-',
+        'ACTION': item.problem_action || '-',
+        'NOTES': item.notes || '-',
+        'PHOTO': item.photo_url ? 'YES' : 'NO'
+      }))
+      const ws = XLSX.utils.json_to_sheet(wsData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Monitoring Data')
+      XLSX.writeFile(wb, `monitoring-data-${new Date().toISOString().split('T')[0]}.xlsx`)
+    }
+
+    function exportManagementData() {
+      if (!isAuthenticated) {
+        document.getElementById('login-modal').classList.remove('hidden')
+        return
+      }
+      const mgData = allData.filter(d => d.table_type === 'management')
+      if (mgData.length === 0) {
+        showFormMessage('form-success', 'NO MANAGEMENT DATA TO EXPORT', true)
+        return
+      }
+      const wsData = mgData.map(item => ({
+        'NAMA MESIN': item.machine_name || '-',
+        'LINE': item.line || '-',
+        'SERIAL NUMBER IJP': item.serial_number || '-',
+        'TIMESTAMP': new Date(item.created_at).toLocaleString()
+      }))
+      const ws = XLSX.utils.json_to_sheet(wsData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Management Data')
+      XLSX.writeFile(wb, `management-data-${new Date().toISOString().split('T')[0]}.xlsx`)
+    }
+
+    function exportAuditData() {
+      if (!isAuthenticated) {
+        document.getElementById('login-modal').classList.remove('hidden')
+        return
+      }
+      const auditData = allData.filter(d => d.table_type === 'audit')
+      if (auditData.length === 0) {
+        showFormMessage('form-success', 'NO AUDIT DATA TO EXPORT', true)
+        return
+      }
+      const wsData = auditData.map(item => ({
+        'TIMESTAMP': new Date(item.created_at).toLocaleString(),
+        'ACTION': item.user_action || '-',
+        'DETAILS': item.activity || '-'
+      }))
+      const ws = XLSX.utils.json_to_sheet(wsData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Audit Trail')
+      XLSX.writeFile(wb, `audit-trail-${new Date().toISOString().split('T')[0]}.xlsx`)
+    }
+
+    // ================== LOG AUDIT ==================
     
-    // Update elemen-elemen persentase
-    const problemPercentEl = document.getElementById('problem-percent')
-    const normalPercentEl = document.getElementById('normal-percent')
-    const problemCountEl = document.getElementById('problem-count')
-    const normalCountEl = document.getElementById('normal-count')
-    const problemProgressBar = document.getElementById('problem-progress-bar')
-    const problemRatioEl = document.getElementById('problem-ratio')
+    async function logAudit(action, details) {
+      if (!supabase) return
+      try {
+        await supabase.from('audit_logs').insert([{ user_action: action, activity: details }])
+      } catch (error) {
+        console.error('Error logging audit:', error)
+      }
+    }
+
+    // ================== DASHBOARD FUNCTIONS ==================
     
-    if (problemPercentEl) problemPercentEl.textContent = `${problemPercent}%`
-    if (normalPercentEl) normalPercentEl.textContent = `${normalPercent}%`
-    if (problemCountEl) problemCountEl.textContent = `${problemsCount} UNIT`
-    if (normalCountEl) normalCountEl.textContent = `${normalCount} UNIT`
-    
-    // Update progress bar
-    if (problemProgressBar) {
-      const problemWidth = total > 0 ? (problemsCount / total) * 100 : 0
-      problemProgressBar.style.width = `${problemWidth}%`
+    function updateDashboard() {
+      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+      const mgData = allData.filter(d => d.table_type === 'management')
+      const problemsCount = monitoringData.filter(d => d.problem_exists === 'ADA').length
+      const normalCount = monitoringData.filter(d => d.problem_exists === 'TIDAK ADA').length
+      const total = problemsCount + normalCount
       
-      // Ubah warna gradient berdasarkan persentase
-      if (problemWidth > 70) {
-        problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #f97316 70%, #10b981 100%)'
-      } else if (problemWidth > 40) {
-        problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #fbbf24 50%, #10b981 100%)'
-      } else {
-        problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #34d399 100%)'
-      }
-    }
-    
-    // Update teks ratio
-    if (problemRatioEl) {
-      problemRatioEl.innerHTML = `⚖️ PROBLEM RATIO: <span class="text-red-500 font-bold">${problemPercent}%</span> : <span class="text-emerald-500 font-bold">${normalPercent}%</span> (NORMAL)`
-    }
+      // Update stats cards
+      document.getElementById('stat-total').textContent = mgData.length
+      document.getElementById('stat-active').textContent = monitoringData.length
+      document.getElementById('stat-problems').textContent = problemsCount
+      const lines = new Set(monitoringData.map(d => d.line))
+      document.getElementById('stat-lines').textContent = lines.size
 
-    updateMonitoringChart(monitoringData)
-    updateProblemChart(monitoringData)
-  }
-
-  function updateMonitoringChart(monitoringData) {
-    const canvas = document.getElementById('monitoring-chart')
-    if (!canvas) return
-    const chartData = monitoringData.map(d => ({
-      machine: d.machine || 'UNKNOWN',
-      opTime: d.cumulative_op_time || 0
-    })).sort((a, b) => a.opTime - b.opTime)
-    const labels = chartData.map(d => d.machine)
-    const values = chartData.map(d => d.opTime)
-    const ctx = canvas.getContext('2d')
-    if (chartInstance) chartInstance.destroy()
-    chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'CUMULATIVE OP TIME (HOURS)',
-          data: values,
-          backgroundColor: values.map(v => {
-            if (v >= 15000) return '#ef4444'
-            if (v >= 10000) return '#ef4444'
-            if (v >= 5000) return '#f59e0b'
-            return '#10b981'
-          }),
-          borderColor: values.map(v => {
-            if (v >= 15000) return '#dc2626'
-            if (v >= 10000) return '#dc2626'
-            if (v >= 5000) return '#d97706'
-            return '#059669'
-          }),
-          borderWidth: 2,
-          borderRadius: 6
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            labels: {
-              font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
-              color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-              padding: 15
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: Math.max(17000, Math.max(...values, 0) * 1.1),
-            ticks: {
-              font: { family: "'Rajdhani', sans-serif", size: 11 },
-              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-            },
-            grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
-          },
-          x: {
-            ticks: {
-              font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
-              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-            },
-            grid: { display: false }
-          }
+      // Update problem summary stats dengan persentase
+      const problemPercent = total > 0 ? ((problemsCount / total) * 100).toFixed(1) : 0
+      const normalPercent = total > 0 ? ((normalCount / total) * 100).toFixed(1) : 0
+      
+      // Update elemen-elemen persentase
+      const problemPercentEl = document.getElementById('problem-percent')
+      const normalPercentEl = document.getElementById('normal-percent')
+      const problemCountEl = document.getElementById('problem-count')
+      const normalCountEl = document.getElementById('normal-count')
+      const problemProgressBar = document.getElementById('problem-progress-bar')
+      const problemRatioEl = document.getElementById('problem-ratio')
+      
+      if (problemPercentEl) problemPercentEl.textContent = `${problemPercent}%`
+      if (normalPercentEl) normalPercentEl.textContent = `${normalPercent}%`
+      if (problemCountEl) problemCountEl.textContent = `${problemsCount} UNIT`
+      if (normalCountEl) normalCountEl.textContent = `${normalCount} UNIT`
+      
+      // Update progress bar
+      if (problemProgressBar) {
+        const problemWidth = total > 0 ? (problemsCount / total) * 100 : 0
+        problemProgressBar.style.width = `${problemWidth}%`
+        
+        // Ubah warna gradient berdasarkan persentase
+        if (problemWidth > 70) {
+          problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #f97316 70%, #10b981 100%)'
+        } else if (problemWidth > 40) {
+          problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #fbbf24 50%, #10b981 100%)'
+        } else {
+          problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #34d399 100%)'
         }
       }
-    })
-  }
+      
+      // Update teks ratio
+      if (problemRatioEl) {
+        problemRatioEl.innerHTML = `⚖️ PROBLEM RATIO: <span class="text-red-500 font-bold">${problemPercent}%</span> : <span class="text-emerald-500 font-bold">${normalPercent}%</span> (NORMAL)`
+      }
 
-  function updateProblemChart(monitoringData) {
-    const canvas = document.getElementById('problem-chart')
-    if (!canvas) return
-    
-    const problemCount = monitoringData.filter(d => d.problem_exists === 'ADA').length
-    const normalCount = monitoringData.filter(d => d.problem_exists === 'TIDAK ADA').length
-    const total = problemCount + normalCount
-    
-    // Hitung persentase
-    const problemPercent = total > 0 ? ((problemCount / total) * 100).toFixed(1) : 0
-    const normalPercent = total > 0 ? ((normalCount / total) * 100).toFixed(1) : 0
-    
-    const ctx = canvas.getContext('2d')
-    if (problemChartInstance) problemChartInstance.destroy()
-    
-    problemChartInstance = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: [
-          `PROBLEM FOUND  (${problemCount} | ${problemPercent}%)`, 
-          `NORMAL  (${normalCount} | ${normalPercent}%)`
-        ],
-        datasets: [{
-          data: [problemCount, normalCount],
-          backgroundColor: ['#ef4444', '#10b981'],
-          borderColor: ['#dc2626', '#059669'],
-          borderWidth: 3,
-          hoverOffset: 12,
-          borderRadius: 8,
-          spacing: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '65%',
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              font: { 
-                family: "'Rajdhani', sans-serif", 
-                size: 12, 
-                weight: 'bold' 
-              },
-              color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-              padding: 15,
-              usePointStyle: true,
-              pointStyle: 'circle'
+      updateMonitoringChart(monitoringData)
+      updateProblemChart(monitoringData)
+    }
+
+    function updateMonitoringChart(monitoringData) {
+      const canvas = document.getElementById('monitoring-chart')
+      if (!canvas) return
+      const chartData = monitoringData.map(d => ({
+        machine: d.machine || 'UNKNOWN',
+        opTime: d.cumulative_op_time || 0
+      })).sort((a, b) => a.opTime - b.opTime)
+      const labels = chartData.map(d => d.machine)
+      const values = chartData.map(d => d.opTime)
+      const ctx = canvas.getContext('2d')
+      if (chartInstance) chartInstance.destroy()
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'CUMULATIVE OP TIME (HOURS)',
+            data: values,
+            backgroundColor: values.map(v => {
+              if (v >= 15000) return '#ef4444'
+              if (v >= 10000) return '#ef4444'
+              if (v >= 5000) return '#f59e0b'
+              return '#10b981'
+            }),
+            borderColor: values.map(v => {
+              if (v >= 15000) return '#dc2626'
+              if (v >= 10000) return '#dc2626'
+              if (v >= 5000) return '#d97706'
+              return '#059669'
+            }),
+            borderWidth: 2,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
+                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
+                padding: 15
+              }
             }
           },
-          tooltip: {
-            backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff',
-            titleColor: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#111827',
-            bodyColor: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563',
-            borderColor: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb',
-            borderWidth: 1,
-            padding: 12,
-            callbacks: {
-              label: function(context) {
-                const label = context.label || ''
-                const value = context.raw || 0
-                const total = context.dataset.data.reduce((a, b) => a + b, 0)
-                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0
-                return [
-                  ` ${label}`,
-                  ` 📊 Value: ${value} unit`,
-                  ` 📈 Percentage: ${percentage}%`
-                ]
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: Math.max(17000, Math.max(...values, 0) * 1.1),
+              ticks: {
+                font: { family: "'Rajdhani', sans-serif", size: 11 },
+                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
+              },
+              grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+            },
+            x: {
+              ticks: {
+                font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
+                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
+              },
+              grid: { display: false }
+            }
+          }
+        }
+      })
+    }
+
+    function updateProblemChart(monitoringData) {
+      const canvas = document.getElementById('problem-chart')
+      if (!canvas) return
+      
+      const problemCount = monitoringData.filter(d => d.problem_exists === 'ADA').length
+      const normalCount = monitoringData.filter(d => d.problem_exists === 'TIDAK ADA').length
+      const total = problemCount + normalCount
+      
+      // Hitung persentase
+      const problemPercent = total > 0 ? ((problemCount / total) * 100).toFixed(1) : 0
+      const normalPercent = total > 0 ? ((normalCount / total) * 100).toFixed(1) : 0
+      
+      const ctx = canvas.getContext('2d')
+      if (problemChartInstance) problemChartInstance.destroy()
+      
+      problemChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: [
+            `PROBLEM FOUND  (${problemCount} | ${problemPercent}%)`, 
+            `NORMAL  (${normalCount} | ${normalPercent}%)`
+          ],
+          datasets: [{
+            data: [problemCount, normalCount],
+            backgroundColor: ['#ef4444', '#10b981'],
+            borderColor: ['#dc2626', '#059669'],
+            borderWidth: 3,
+            hoverOffset: 12,
+            borderRadius: 8,
+            spacing: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: { 
+                  family: "'Rajdhani', sans-serif", 
+                  size: 12, 
+                  weight: 'bold' 
+                },
+                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
+                padding: 15,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            },
+            tooltip: {
+              backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff',
+              titleColor: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#111827',
+              bodyColor: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563',
+              borderColor: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || ''
+                  const value = context.raw || 0
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0)
+                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0
+                  return [
+                    ` ${label}`,
+                    ` 📊 Value: ${value} unit`,
+                    ` 📈 Percentage: ${percentage}%`
+                  ]
+                }
               }
             }
           }
         }
+      })
+    }
+
+    function updateCriticalAlerts() {
+      const container = document.getElementById('critical-alerts')
+      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+      const criticalItems = monitoringData.filter(d => d.cumulative_op_time >= 15000)
+      const warningItems = monitoringData.filter(d => d.cumulative_op_time >= 10000 && d.cumulative_op_time < 15000)
+      let html = ''
+      if (criticalItems.length > 0) {
+        html += criticalItems.map(item => `
+          <div class="bg-red-50 dark:bg-red-900/20 border-2 border-red-500 dark:border-red-600 rounded-xl p-4 mb-4 shadow-lg">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl critical-pulse">🚨</div>
+              <div class="flex-1">
+                <h3 class="font-orbitron font-bold text-red-700 dark:text-red-400 uppercase mb-1">CRITICAL - IMMEDIATE SERVICE REQUIRED</h3>
+                <p class="text-red-600 dark:text-red-300 font-semibold uppercase mb-2">FILTER SET REPLACEMENT MANDATORY (≥15000 HRS)</p>
+                <p class="text-sm text-red-600 dark:text-red-300 uppercase"><strong>LINE:</strong> ${item.line || '-'} | <strong>SERIAL:</strong> ${item.serial_number || '-'} | <strong>OP TIME:</strong> ${item.cumulative_op_time} HRS</p>
+              </div>
+            </div>
+          </div>
+        `).join('')
       }
-    })
-  }
-
-  function updateCriticalAlerts() {
-    const container = document.getElementById('critical-alerts')
-    const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-    const criticalItems = monitoringData.filter(d => d.cumulative_op_time >= 15000)
-    const warningItems = monitoringData.filter(d => d.cumulative_op_time >= 10000 && d.cumulative_op_time < 15000)
-    let html = ''
-    if (criticalItems.length > 0) {
-      html += criticalItems.map(item => `
-        <div class="bg-red-50 dark:bg-red-900/20 border-2 border-red-500 dark:border-red-600 rounded-xl p-4 mb-4 shadow-lg">
-          <div class="flex items-start gap-3">
-            <div class="text-3xl critical-pulse">🚨</div>
-            <div class="flex-1">
-              <h3 class="font-orbitron font-bold text-red-700 dark:text-red-400 uppercase mb-1">CRITICAL - IMMEDIATE SERVICE REQUIRED</h3>
-              <p class="text-red-600 dark:text-red-300 font-semibold uppercase mb-2">FILTER SET REPLACEMENT MANDATORY (≥15000 HRS)</p>
-              <p class="text-sm text-red-600 dark:text-red-300 uppercase"><strong>LINE:</strong> ${item.line || '-'} | <strong>SERIAL:</strong> ${item.serial_number || '-'} | <strong>OP TIME:</strong> ${item.cumulative_op_time} HRS</p>
+      if (warningItems.length > 0) {
+        html += warningItems.map(item => `
+          <div class="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-500 dark:border-amber-600 rounded-xl p-4 mb-4 shadow-lg">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl blink-warning">⚠️</div>
+              <div class="flex-1">
+                <h3 class="font-orbitron font-bold text-amber-700 dark:text-amber-400 uppercase mb-1">WARNING - FILTER SET REPLACEMENT NEEDED SOON</h3>
+                <p class="text-amber-600 dark:text-amber-300 font-semibold uppercase mb-2">SCHEDULE FILTER REPLACEMENT WITHIN 1 WEEK</p>
+                <p class="text-sm text-amber-600 dark:text-amber-300 uppercase"><strong>LINE:</strong> ${item.line || '-'} | <strong>SERIAL:</strong> ${item.serial_number || '-'} | <strong>OP TIME:</strong> ${item.cumulative_op_time} HRS (10000-15000)</p>
+              </div>
             </div>
           </div>
-        </div>
-      `).join('')
+        `).join('')
+      }
+      container.innerHTML = html
     }
-    if (warningItems.length > 0) {
-      html += warningItems.map(item => `
-        <div class="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-500 dark:border-amber-600 rounded-xl p-4 mb-4 shadow-lg">
-          <div class="flex items-start gap-3">
-            <div class="text-3xl blink-warning">⚠️</div>
-            <div class="flex-1">
-              <h3 class="font-orbitron font-bold text-amber-700 dark:text-amber-400 uppercase mb-1">WARNING - FILTER SET REPLACEMENT NEEDED SOON</h3>
-              <p class="text-amber-600 dark:text-amber-300 font-semibold uppercase mb-2">SCHEDULE FILTER REPLACEMENT WITHIN 1 WEEK</p>
-              <p class="text-sm text-amber-600 dark:text-amber-300 uppercase"><strong>LINE:</strong> ${item.line || '-'} | <strong>SERIAL:</strong> ${item.serial_number || '-'} | <strong>OP TIME:</strong> ${item.cumulative_op_time} HRS (10000-15000)</p>
+
+    function updateManagementTable() {
+      if (!isAuthenticated) return
+      const tbody = document.getElementById('management-table')
+      const data = allData.filter(d => d.table_type === 'management')
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO IJP DATA REGISTERED</td></tr>'
+        return
+      }
+      tbody.innerHTML = data.map(item => `
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+          <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.machine_name || '-'}</td>
+          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.line || '-'}</td>
+          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">
+            <div class="flex items-center gap-2">
+              <input type="text" value="${item.serial_number || ''}" class="serial-edit-input flex-1 px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase font-semibold text-sm" data-id="${item.id}" data-original="${item.serial_number || ''}">
+              <button onclick="window.saveSerialNumber('${item.id}', this)" class="px-2 py-1 text-xs font-bold bg-green-500 text-white rounded uppercase hover:bg-green-600 transition-all">✓</button>
             </div>
-          </div>
-        </div>
+          </td>
+          <td class="px-4 py-3">
+            <button onclick="window.showDeleteModal({id: '${item.id}'})" class="px-3 py-1 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg uppercase transition-all">DELETE</button>
+          </td>
+        </tr>
       `).join('')
     }
-    container.innerHTML = html
-  }
 
-  function updateManagementTable() {
-    if (!isAuthenticated) return
-    const tbody = document.getElementById('management-table')
-    const data = allData.filter(d => d.table_type === 'management')
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO IJP DATA REGISTERED</td></tr>'
-      return
+    function updateAuditTable() {
+      if (!isAuthenticated) return
+      const tbody = document.getElementById('audit-table')
+      const data = allData.filter(d => d.table_type === 'audit').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      document.getElementById('audit-count').textContent = `${data.length} RECORDS`
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO ACTIVITY RECORDED</td></tr>'
+        return
+      }
+      tbody.innerHTML = data.map(item => {
+        const date = new Date(item.created_at)
+        const formattedDate = date.toLocaleString('en-US', {
+          year: 'numeric', month: 'short', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }).toUpperCase()
+        return `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <td class="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">${formattedDate}</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded uppercase">${item.user_action || '-'}</span></td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.activity || '-'}</td>
+          </tr>
+        `
+      }).join('')
     }
-    tbody.innerHTML = data.map(item => `
-      <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-        <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.machine_name || '-'}</td>
-        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.line || '-'}</td>
-        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">
-          <div class="flex items-center gap-2">
-            <input type="text" value="${item.serial_number || ''}" class="serial-edit-input flex-1 px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase font-semibold text-sm" data-id="${item.id}" data-original="${item.serial_number || ''}">
-            <button onclick="window.saveSerialNumber('${item.id}', this)" class="px-2 py-1 text-xs font-bold bg-green-500 text-white rounded uppercase hover:bg-green-600 transition-all">✓</button>
-          </div>
-        </td>
-        <td class="px-4 py-3">
-          <button onclick="window.showDeleteModal({id: '${item.id}'})" class="px-3 py-1 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg uppercase transition-all">DELETE</button>
-        </td>
-      </tr>
-    `).join('')
-  }
 
-  function updateAuditTable() {
-    if (!isAuthenticated) return
-    const tbody = document.getElementById('audit-table')
-    const data = allData.filter(d => d.table_type === 'audit').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    document.getElementById('audit-count').textContent = `${data.length} RECORDS`
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO ACTIVITY RECORDED</td></tr>'
-      return
+    // ================== WEEKLY FUNCTIONS ==================
+    
+    function getWeekNumber(date) {
+      const d = new Date(date)
+      d.setHours(0, 0, 0, 0)
+      d.setDate(d.getDate() + 4 - (d.getDay() || 7))
+      const yearStart = new Date(d.getFullYear(), 0, 1)
+      const week = Math.ceil(((d - yearStart) / 86400000) + 1) / 7
+      return week
     }
-    tbody.innerHTML = data.map(item => {
-      const date = new Date(item.created_at)
-      const formattedDate = date.toLocaleString('en-US', {
-        year: 'numeric', month: 'short', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
+
+    function populateWeekSelector() {
+      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+      const weeks = new Set()
+      monitoringData.forEach(d => {
+        if (d.monitoring_date) {
+          const week = getWeekNumber(new Date(d.monitoring_date))
+          const year = new Date(d.monitoring_date).getFullYear()
+          weeks.add(`${year}-W${String(week).padStart(2, '0')}`)
+        }
+      })
+      const sortedWeeks = Array.from(weeks).sort().reverse()
+      const selector = document.getElementById('week_selector')
+      selector.innerHTML = '<option value="">-- SELECT WEEK --</option>'
+      sortedWeeks.forEach(week => {
+        const option = document.createElement('option')
+        option.value = week
+        option.textContent = `WEEK ${week}`
+        selector.appendChild(option)
+      })
+      if (sortedWeeks.length > 0) {
+        selector.value = sortedWeeks[0]
+        updateWeeklyAnalysis(sortedWeeks[0])
+      }
+      selector.addEventListener('change', (e) => {
+        if (e.target.value) updateWeeklyAnalysis(e.target.value)
+      })
+    }
+
+    function updateWeeklyAnalysis(weekString) {
+      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
+      const [year, week] = weekString.split('-W')
+      const weekNum = parseInt(week)
+      const weekData = monitoringData.filter(d => {
+        if (!d.monitoring_date) return false
+        const dataWeek = getWeekNumber(new Date(d.monitoring_date))
+        const dataYear = new Date(d.monitoring_date).getFullYear()
+        return dataYear === parseInt(year) && dataWeek === weekNum
+      })
+      const totalOpTime = weekData.reduce((sum, d) => sum + (d.cumulative_op_time || 0), 0)
+      const entries = weekData.length
+      const avgOpTime = entries > 0 ? Math.round(totalOpTime / entries) : 0
+      document.getElementById('weekly-total').textContent = totalOpTime
+      document.getElementById('weekly-entries').textContent = entries
+      document.getElementById('weekly-avg').textContent = avgOpTime
+      updateWeeklyTrendChart(weekData)
+      updateMachineComparisonChart(weekData)
+      updateWeeklyTable(weekData)
+    }
+
+    function updateWeeklyTrendChart(weekData) {
+      const canvas = document.getElementById('weekly-trend-chart')
+      if (!canvas) return
+      const sortedData = [...weekData].sort((a, b) => new Date(a.monitoring_date) - new Date(b.monitoring_date))
+      const labels = sortedData.map(d => new Date(d.monitoring_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }))
+      const values = sortedData.map(d => d.cumulative_op_time || 0)
+      const ctx = canvas.getContext('2d')
+      if (weeklyTrendChart) weeklyTrendChart.destroy()
+      weeklyTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'CUMULATIVE OP TIME (HOURS)',
+            data: values,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 6,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
+                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
+                padding: 15
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                font: { family: "'Rajdhani', sans-serif", size: 11 },
+                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
+              },
+              grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+            },
+            x: {
+              ticks: {
+                font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
+                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
+              },
+              grid: { display: false }
+            }
+          }
+        }
+      })
+    }
+
+    function updateMachineComparisonChart(weekData) {
+      const canvas = document.getElementById('machine-comparison-chart')
+      if (!canvas) return
+      const machineData = {}
+      weekData.forEach(d => {
+        const machine = d.machine || 'UNKNOWN'
+        if (!machineData[machine]) machineData[machine] = 0
+        machineData[machine] += d.cumulative_op_time || 0
+      })
+      const labels = Object.keys(machineData).sort()
+      const values = labels.map(m => machineData[m])
+      const ctx = canvas.getContext('2d')
+      if (machineComparisonChart) machineComparisonChart.destroy()
+      machineComparisonChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'TOTAL OP TIME (HOURS)',
+            data: values,
+            backgroundColor: values.map(v => {
+              if (v > 10000) return '#ef4444'
+              if (v > 5000) return '#f59e0b'
+              return '#06b6d4'
+            }),
+            borderColor: values.map(v => {
+              if (v > 10000) return '#dc2626'
+              if (v > 5000) return '#d97706'
+              return '#0891b2'
+            }),
+            borderWidth: 2,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
+                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
+                padding: 15
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                font: { family: "'Rajdhani', sans-serif", size: 11 },
+                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
+              },
+              grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
+            },
+            x: {
+              ticks: {
+                font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
+                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
+              },
+              grid: { display: false }
+            }
+          }
+        }
+      })
+    }
+
+    function updateWeeklyTable(weekData) {
+      const tbody = document.getElementById('weekly-table')
+      if (weekData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO DATA FOR THIS WEEK</td></tr>'
+        return
+      }
+      const sortedData = [...weekData].sort((a, b) => new Date(a.monitoring_date) - new Date(b.monitoring_date))
+      tbody.innerHTML = sortedData.map((item, idx) => {
+        const date = new Date(item.monitoring_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+        const opTime = item.cumulative_op_time || 0
+        let increment = 0
+        if (idx > 0 && sortedData[idx - 1].serial_number === item.serial_number) {
+          increment = Math.max(0, opTime - (sortedData[idx - 1].cumulative_op_time || 0))
+        }
+        const conditionClass = item.ijp_condition === 'OK' 
+          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+        return `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200">${date}</td>
+            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">${item.serial_number || '-'}</td>
+            <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
+            <td class="px-4 py-3 text-sm font-orbitron font-bold text-cyan-600 dark:text-cyan-400">${increment} HRS</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
+          </tr>
+        `
+      }).join('')
+    }
+
+    // ================== CLOCK ==================
+    
+    function updateClock() {
+      const now = new Date()
+      document.getElementById('current-time').textContent = now.toLocaleString('en-US', {
+        weekday: 'short', year: 'numeric', month: 'short',
+        day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
       }).toUpperCase()
-      return `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-          <td class="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">${formattedDate}</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded uppercase">${item.user_action || '-'}</span></td>
-          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.activity || '-'}</td>
-        </tr>
-      `
-    }).join('')
-  }
-
-  // ================== WEEKLY FUNCTIONS ==================
-  
-  function getWeekNumber(date) {
-    const d = new Date(date)
-    d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() + 4 - (d.getDay() || 7))
-    const yearStart = new Date(d.getFullYear(), 0, 1)
-    const week = Math.ceil(((d - yearStart) / 86400000) + 1) / 7
-    return week
-  }
-
-  function populateWeekSelector() {
-    const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-    const weeks = new Set()
-    monitoringData.forEach(d => {
-      if (d.monitoring_date) {
-        const week = getWeekNumber(new Date(d.monitoring_date))
-        const year = new Date(d.monitoring_date).getFullYear()
-        weeks.add(`${year}-W${String(week).padStart(2, '0')}`)
-      }
-    })
-    const sortedWeeks = Array.from(weeks).sort().reverse()
-    const selector = document.getElementById('week_selector')
-    selector.innerHTML = '<option value="">-- SELECT WEEK --</option>'
-    sortedWeeks.forEach(week => {
-      const option = document.createElement('option')
-      option.value = week
-      option.textContent = `WEEK ${week}`
-      selector.appendChild(option)
-    })
-    if (sortedWeeks.length > 0) {
-      selector.value = sortedWeeks[0]
-      updateWeeklyAnalysis(sortedWeeks[0])
     }
-    selector.addEventListener('change', (e) => {
-      if (e.target.value) updateWeeklyAnalysis(e.target.value)
-    })
-  }
 
-  function updateWeeklyAnalysis(weekString) {
-    const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-    const [year, week] = weekString.split('-W')
-    const weekNum = parseInt(week)
-    const weekData = monitoringData.filter(d => {
-      if (!d.monitoring_date) return false
-      const dataWeek = getWeekNumber(new Date(d.monitoring_date))
-      const dataYear = new Date(d.monitoring_date).getFullYear()
-      return dataYear === parseInt(year) && dataWeek === weekNum
-    })
-    const totalOpTime = weekData.reduce((sum, d) => sum + (d.cumulative_op_time || 0), 0)
-    const entries = weekData.length
-    const avgOpTime = entries > 0 ? Math.round(totalOpTime / entries) : 0
-    document.getElementById('weekly-total').textContent = totalOpTime
-    document.getElementById('weekly-entries').textContent = entries
-    document.getElementById('weekly-avg').textContent = avgOpTime
-    updateWeeklyTrendChart(weekData)
-    updateMachineComparisonChart(weekData)
-    updateWeeklyTable(weekData)
-  }
-
-  function updateWeeklyTrendChart(weekData) {
-    const canvas = document.getElementById('weekly-trend-chart')
-    if (!canvas) return
-    const sortedData = [...weekData].sort((a, b) => new Date(a.monitoring_date) - new Date(b.monitoring_date))
-    const labels = sortedData.map(d => new Date(d.monitoring_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }))
-    const values = sortedData.map(d => d.cumulative_op_time || 0)
-    const ctx = canvas.getContext('2d')
-    if (weeklyTrendChart) weeklyTrendChart.destroy()
-    weeklyTrendChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'CUMULATIVE OP TIME (HOURS)',
-          data: values,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          borderWidth: 3,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 6,
-          pointBackgroundColor: '#10b981',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            labels: {
-              font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
-              color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-              padding: 15
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              font: { family: "'Rajdhani', sans-serif", size: 11 },
-              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-            },
-            grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
-          },
-          x: {
-            ticks: {
-              font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
-              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-            },
-            grid: { display: false }
-          }
-        }
-      }
-    })
-  }
-
-  function updateMachineComparisonChart(weekData) {
-    const canvas = document.getElementById('machine-comparison-chart')
-    if (!canvas) return
-    const machineData = {}
-    weekData.forEach(d => {
-      const machine = d.machine || 'UNKNOWN'
-      if (!machineData[machine]) machineData[machine] = 0
-      machineData[machine] += d.cumulative_op_time || 0
-    })
-    const labels = Object.keys(machineData).sort()
-    const values = labels.map(m => machineData[m])
-    const ctx = canvas.getContext('2d')
-    if (machineComparisonChart) machineComparisonChart.destroy()
-    machineComparisonChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'TOTAL OP TIME (HOURS)',
-          data: values,
-          backgroundColor: values.map(v => {
-            if (v > 10000) return '#ef4444'
-            if (v > 5000) return '#f59e0b'
-            return '#06b6d4'
-          }),
-          borderColor: values.map(v => {
-            if (v > 10000) return '#dc2626'
-            if (v > 5000) return '#d97706'
-            return '#0891b2'
-          }),
-          borderWidth: 2,
-          borderRadius: 6
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            labels: {
-              font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
-              color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-              padding: 15
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              font: { family: "'Rajdhani', sans-serif", size: 11 },
-              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-            },
-            grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
-          },
-          x: {
-            ticks: {
-              font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
-              color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-            },
-            grid: { display: false }
-          }
-        }
-      }
-    })
-  }
-
-  function updateWeeklyTable(weekData) {
-    const tbody = document.getElementById('weekly-table')
-    if (weekData.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO DATA FOR THIS WEEK</td></tr>'
-      return
-    }
-    const sortedData = [...weekData].sort((a, b) => new Date(a.monitoring_date) - new Date(b.monitoring_date))
-    tbody.innerHTML = sortedData.map((item, idx) => {
-      const date = new Date(item.monitoring_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-      const opTime = item.cumulative_op_time || 0
-      let increment = 0
-      if (idx > 0 && sortedData[idx - 1].serial_number === item.serial_number) {
-        increment = Math.max(0, opTime - (sortedData[idx - 1].cumulative_op_time || 0))
-      }
-      const conditionClass = item.ijp_condition === 'OK' 
-        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-      return `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-          <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200">${date}</td>
-          <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
-          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">${item.serial_number || '-'}</td>
-          <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
-          <td class="px-4 py-3 text-sm font-orbitron font-bold text-cyan-600 dark:text-cyan-400">${increment} HRS</td>
-          <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
-        </tr>
-      `
-    }).join('')
-  }
-
-  // ================== CLOCK ==================
-  
-  function updateClock() {
-    const now = new Date()
-    document.getElementById('current-time').textContent = now.toLocaleString('en-US', {
-      weekday: 'short', year: 'numeric', month: 'short',
-      day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
-    }).toUpperCase()
-  }
-
-  // ================== INITIALIZE ==================
-  
-  async function init() {
-    setupThemeToggle()
-    setupNavigation()
-    setupForms()
-    setupDeleteModal()
-    setupExportButtons()
-    setupLogin()
-    setupAutoLock()
-    updateClock()
-    setInterval(updateClock, 1000)
-
-    const today = new Date().toISOString().split('T')[0]
-    document.getElementById('monitoring_date').value = today
-
-    await loadAllData()
-    subscribeToChanges()
-    checkAuthStatus()
+    // ================== INITIALIZE ==================
     
-    // FILTER LINE EVENT
-    const lineFilter = document.getElementById('line-filter')
-    if (lineFilter) {
-      lineFilter.addEventListener('change', (e) => {
-        currentLineFilter = e.target.value
-        updateMonitoringTable()
-      })
-    }
-    
-    // FILTER STATUS EVENT
-    const statusFilter = document.getElementById('status-filter')
-    if (statusFilter) {
-      statusFilter.addEventListener('change', (e) => {
-        currentStatusFilter = e.target.value
-        updateMonitoringTable()
-      })
+    async function init() {
+      // Setup UI components
+      setupThemeToggle()
+      setupNavigation()
+      setupForms()
+      setupDeleteModal()
+      setupExportButtons()
+      setupLogin()
+      setupAutoLock()
+      updateClock()
+      setInterval(updateClock, 1000)
+
+      // Set default date
+      const today = new Date().toISOString().split('T')[0]
+      document.getElementById('monitoring_date').value = today
+
+      // Initialize Supabase and load data
+      const connected = await initSupabase()
+      if (connected) {
+        await loadAllData()
+        subscribeToChanges()
+      }
+      
+      checkAuthStatus()
+      
+      // FILTER LINE EVENT
+      const lineFilter = document.getElementById('line-filter')
+      if (lineFilter) {
+        lineFilter.addEventListener('change', (e) => {
+          currentLineFilter = e.target.value
+          updateMonitoringTable()
+        })
+      }
+      
+      // FILTER STATUS EVENT
+      const statusFilter = document.getElementById('status-filter')
+      if (statusFilter) {
+        statusFilter.addEventListener('change', (e) => {
+          currentStatusFilter = e.target.value
+          updateMonitoringTable()
+        })
+      }
+
+      // RESET FILTER BUTTON
+      const resetBtn = document.getElementById('reset-filters')
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          currentLineFilter = 'ALL'
+          currentStatusFilter = 'ALL'
+          document.getElementById('line-filter').value = 'ALL'
+          document.getElementById('status-filter').value = 'ALL'
+          updateMonitoringTable()
+        })
+      }
     }
 
-    // RESET FILTER BUTTON
-    const resetBtn = document.getElementById('reset-filters')
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        currentLineFilter = 'ALL'
-        currentStatusFilter = 'ALL'
-        document.getElementById('line-filter').value = 'ALL'
-        document.getElementById('status-filter').value = 'ALL'
-        updateMonitoringTable()
-      })
-    }
-  }
-
-  init()
+    // Tunggu sampai semua library terload
+    window.addEventListener('load', init)
+  })();
 </script>
 </body>
 </html>
