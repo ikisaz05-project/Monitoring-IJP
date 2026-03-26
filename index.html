@@ -1,16 +1,19 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IJP MONITORING SYSTEM - WITH FIXED CONNECTION</title>
-  <!-- Gunakan CDN yang stable -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>IJP MONITORING SYSTEM | REAL-TIME DASHBOARD</title>
+  <!-- TAILWIND CSS - CDN (development only, but functional) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
-  <!-- Gunakan CDN yang tepat untuk Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&amp;family=Rajdhani:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <!-- CHART.JS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- XLSX EXPORT -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <!-- SUPABASE JS - FIXED VERSION with explicit global -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+  <!-- GOOGLE FONTS -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -25,7 +28,8 @@
     }
   </script>
   <style>
-    body { box-sizing: border-box; }
+    * { box-sizing: border-box; }
+    body { transition: background-color 0.3s, color 0.2s; }
     .glow-effect { box-shadow: 0 0 20px rgba(0, 255, 136, 0.3); }
     .card-gradient { background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 136, 255, 0.1) 100%); }
     .dark .card-gradient { background: linear-gradient(135deg, rgba(0, 255, 136, 0.05) 0%, rgba(0, 136, 255, 0.05) 100%); }
@@ -46,28 +50,8 @@
     @keyframes slideIn { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
     .security-notif { animation: slideDown 0.3s ease-out; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    /* ANIMASI UNTUK PERSENTASE */
-    @keyframes countUp {
-      from { transform: translateY(10px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    #problem-percent, #normal-percent {
-      animation: countUp 0.5s ease-out;
-    }
-    .problem-card-hover {
-      transition: all 0.3s ease;
-    }
-    .problem-card-hover:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.3);
-    }
-    .normal-card-hover:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3);
-    }
-    
-    /* LOADING SPINNER */
+    @keyframes countUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    #problem-percent, #normal-percent { animation: countUp 0.5s ease-out; }
     .loader {
       border: 3px solid #f3f3f3;
       border-radius: 50%;
@@ -76,1905 +60,316 @@
       height: 40px;
       animation: spin 1s linear infinite;
     }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body class="h-full font-rajdhani bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
 <div id="app" class="h-full w-full flex flex-col overflow-auto">
-  
-  <!-- HEADER -->
   <header class="bg-white dark:bg-gray-800 shadow-lg border-b-2 border-emerald-500 px-4 py-3">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
         </div>
-        <div>
-          <h1 class="font-orbitron font-bold text-lg md:text-xl text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">IJP MONITORING SYSTEM</h1>
-          <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest">SECURE MANAGEMENT SYSTEM</p>
-        </div>
+        <div><h1 class="font-orbitron font-bold text-lg md:text-xl text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">IJP MONITORING SYSTEM</h1><p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest">SECURE MANAGEMENT SYSTEM</p></div>
       </div>
       <div class="flex items-center gap-3">
-        <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span> 
-          <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase">SYSTEM ONLINE</span>
-        </div>
-        <div id="auth-status" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30">
-          <span id="auth-indicator" class="w-2 h-2 rounded-full bg-red-500"></span>
-          <span id="auth-text" class="text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase">NOT LOGGED IN</span>
-        </div>
-        <button id="theme-toggle" type="button" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-          <svg id="sun-icon" class="w-5 h-5 text-yellow-500" fill="currentColor" viewbox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" /></svg>
-          <svg id="moon-icon" class="w-5 h-5 text-gray-700 hidden" fill="currentColor" viewbox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
-        </button>
-        <button id="logout-btn" class="hidden px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg uppercase hover:bg-red-600 transition-all">LOGOUT</button>
+        <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30"><span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span><span class="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase">SYSTEM ONLINE</span></div>
+        <div id="auth-status" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30"><span id="auth-indicator" class="w-2 h-2 rounded-full bg-red-500"></span><span id="auth-text" class="text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase">NOT LOGGED IN</span></div>
+        <button id="theme-toggle" type="button" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"><svg id="sun-icon" class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" /></svg><svg id="moon-icon" class="w-5 h-5 text-gray-700 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg></button>
+        <button id="logout-btn" class="hidden px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg uppercase hover:bg-red-600">LOGOUT</button>
       </div>
     </div>
   </header>
-
-  <!-- CONNECTION STATUS & SECURITY NOTIFICATION -->
   <div id="connection-status" class="hidden"></div>
-  <div id="security-notif" class="hidden bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-2 security-notif">
-    <div class="flex items-center">
-      <div class="flex-shrink-0"><svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></div>
-      <div class="ml-3"><p class="text-sm text-yellow-700 dark:text-yellow-400 font-semibold uppercase">⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED DUE TO TAB SWITCH</p></div>
-    </div>
-  </div>
-
-  <!-- NAVIGATION -->
+  <div id="security-notif" class="hidden bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-2 security-notif"><div class="flex items-center"><div class="flex-shrink-0"><svg class="h-5 w-5 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></div><div class="ml-3"><p class="text-sm text-yellow-700 dark:text-yellow-400 font-semibold uppercase">⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED DUE TO TAB SWITCH</p></div></div></div>
   <nav class="bg-white dark:bg-gray-800 shadow-md px-4 py-2 border-b border-gray-200 dark:border-gray-700">
     <div class="flex gap-1 overflow-x-auto">
-      <button data-nav="dashboard" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg><span>DASHBOARD</span></button> 
-      <button data-nav="form" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><span>FORM INPUT IJP</span></button> 
-      <button data-nav="weekly" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>WEEKLY ANALYSIS</span></button> 
-      <button data-nav="management" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg><span>MANAGEMENT</span></button> 
-      <button data-nav="audit" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span>AUDIT TRAIL</span></button>
+      <button data-nav="dashboard" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg><span>DASHBOARD</span></button>
+      <button data-nav="form" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><span>FORM INPUT IJP</span></button>
+      <button data-nav="weekly" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>WEEKLY ANALYSIS</span></button>
+      <button data-nav="management" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg><span>MANAGEMENT</span></button>
+      <button data-nav="audit" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wide transition-all hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span>AUDIT TRAIL</span></button>
     </div>
   </nav>
-
-  <!-- MAIN CONTENT -->
   <main class="flex-1 p-4 md:p-6 overflow-auto">
+    <div id="global-loading" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-xl p-8 flex flex-col items-center gap-4"><div class="loader"></div><p class="text-emerald-600 dark:text-emerald-400 font-bold uppercase">LOADING DATA...</p></div></div>
     
-    <!-- LOADING OVERLAY -->
-    <div id="global-loading" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-gray-800 rounded-xl p-8 flex flex-col items-center gap-4">
-        <div class="loader"></div>
-        <p class="text-emerald-600 dark:text-emerald-400 font-bold uppercase">LOADING DATA...</p>
-      </div>
-    </div>
-    
-    <!-- DASHBOARD PAGE -->
+    <!-- DASHBOARD -->
     <section id="page-dashboard" class="page">
-      <div class="mb-6 flex items-center justify-between">
-        <div><h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">DASHBOARD OVERVIEW</h2><p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">REAL-TIME INK JET PRINTER MONITORING STATUS</p></div>
-        <div class="flex gap-2"><button id="export-monitoring" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white font-bold rounded-lg uppercase hover:bg-blue-600 transition-all shadow-lg text-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> EXPORT MONITORING</button></div>
-      </div>
+      <div class="mb-6 flex items-center justify-between"><div><h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">DASHBOARD OVERVIEW</h2><p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">REAL-TIME INK JET PRINTER MONITORING STATUS</p></div><div class="flex gap-2"><button id="export-monitoring" class="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white font-bold rounded-lg uppercase hover:bg-blue-600 transition-all shadow-lg text-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> EXPORT MONITORING</button></div></div>
       <div id="critical-alerts" class="mb-6"></div>
-      
-      <!-- STATS CARDS -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg></div><span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase">TOTAL</span></div><p id="stat-total" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">IJP UNITS</p></div>
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-cyan-200 dark:border-cyan-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div><span class="text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase">ACTIVE</span></div><p id="stat-active" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">MONITORED</p></div>
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-purple-200 dark:border-purple-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg></div><span class="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">LINES</span></div><p id="stat-lines" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">ACTIVE LINES</p></div>
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-200 dark:border-red-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2M6 9v2a6 6 0 0012 0V9m-3 7h6a2 2 0 002-2v-5a2 2 0 00-2-2h-6a2 2 0 00-2 2v5a2 2 0 002 2z" /></svg></div><span class="text-xs font-bold text-red-600 dark:text-red-400 uppercase">PROBLEM</span></div><p id="stat-problems" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">ACTIVE ISSUES</p></div>
-      </div>
-
-      <!-- CHARTS -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"><div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">PARETO OPERATION TIME MACHINE</h3><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">⚠️ WARNING: 5000 HRS | 🔴 CRITICAL: 10000 HRS</p></div><div class="p-4 md:p-6"><div style="position: relative; height: 300px; width: 100%;"><canvas id="monitoring-chart"></canvas></div></div></div>
-        
-        <!-- PROBLEM SUMMARY CHART SECTION - UPDATED WITH PERCENTAGE -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">PROBLEM SUMMARY</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">ACTIVE ISSUES BY TYPE WITH PERCENTAGE</p>
-          </div>
-          <div class="p-4 md:p-6">
-            <!-- CHART CANVAS -->
-            <div style="position: relative; height: 280px; width: 100%;">
-              <canvas id="problem-chart"></canvas>
-            </div>
-            
-            <!-- RINGKASAN PERSENTASE -->
-            <div id="problem-stats-summary" class="mt-6 grid grid-cols-2 gap-4">
-              <!-- PROBLEM CARD -->
-              <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-center shadow-lg transform transition-all duration-300 hover:scale-105">
-                <span class="text-3xl font-orbitron font-bold text-white" id="problem-percent">0%</span>
-                <p class="text-xs font-bold text-white/90 uppercase mt-1 tracking-wider flex items-center justify-center gap-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0-10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  PROBLEM
-                </p>
-                <div class="flex items-center justify-center gap-2 mt-2">
-                  <span class="text-sm font-bold text-white" id="problem-count">0 UNIT</span>
-                </div>
-              </div>
-              
-              <!-- NORMAL CARD -->
-              <div class="bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-xl p-4 text-center shadow-lg transform transition-all duration-300 hover:scale-105">
-                <span class="text-3xl font-orbitron font-bold text-white" id="normal-percent">0%</span>
-                <p class="text-xs font-bold text-white/90 uppercase mt-1 tracking-wider flex items-center justify-center gap-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  NORMAL
-                </p>
-                <div class="flex items-center justify-center gap-2 mt-2">
-                  <span class="text-sm font-bold text-white" id="normal-count">0 UNIT</span>
-                </div>
-              </div>
-            </div>
-            
-            <!-- PROGRESS BAR VISUAL -->
-            <div class="mt-6">
-              <div class="flex items-center justify-between text-xs font-bold uppercase mb-2">
-                <span class="text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <span class="w-2 h-2 rounded-full bg-red-500"></span> PROBLEM
-                </span>
-                <span class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> NORMAL
-                </span>
-              </div>
-              <div class="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div id="problem-progress-bar" class="h-full bg-gradient-to-r from-red-500 via-orange-500 to-emerald-500 transition-all duration-500" style="width: 0%"></div>
-              </div>
-              <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-3 uppercase font-bold tracking-wider" id="problem-ratio">
-                ⚖️ PROBLEM RATIO: 0% : 0% (NORMAL)
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- MONITORING TABLE with FILTERS -->
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">MONITORING DATA</h3>
-            
-            <!-- FILTER SECTION -->
-            <div class="flex flex-wrap items-center gap-4">
-              <!-- FILTER LINE -->
-              <div class="flex items-center gap-2">
-                <label class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">LINE:</label>
-                <select id="line-filter" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all min-w-[120px]">
-                  <option value="ALL">SEMUA LINE</option>
-                </select>
-              </div>
-              
-              <!-- FILTER STATUS -->
-              <div class="flex items-center gap-2">
-                <label class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">STATUS:</label>
-                <select id="status-filter" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-semibold text-sm uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all min-w-[140px]">
-                  <option value="ALL">SEMUA STATUS</option>
-                  <option value="NORMAL">🟢 NORMAL</option>
-                  <option value="WARNING">🟡 WARNING</option>
-                  <option value="CRITICAL">🔴 CRITICAL</option>
-                </select>
-              </div>
-              
-              <!-- RESET FILTER BUTTON -->
-              <button id="reset-filters" class="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-lg uppercase hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
-                RESET FILTER
-              </button>
-              
-              <!-- FILTERED COUNT -->
-              <span id="filtered-count" class="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 rounded-full font-bold whitespace-nowrap">0/0</span>
-            </div>
-          </div>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50 dark:bg-gray-900">
-              <tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">LINE</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">SERIAL NUMBER</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">MACHINE</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">OP TIME</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">KONDISI</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">PROBLEM</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">STATUS</th></tr>
-            </thead>
-            <tbody id="monitoring-table" class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">LOADING DATA...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- FORM PAGE -->
-    <section id="page-form" class="page hidden">
-      <div class="mb-6">
-        <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">FORM INPUT IJP</h2>
-        <p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">INPUT DATA MONITORING INK JET PRINTER</p>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-        <form id="monitoring-form" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="machine_dropdown" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">MESIN / MACHINE</label> 
-              <select id="machine_dropdown" name="machine_dropdown" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> 
-                <option value="">-- SELECT MACHINE --</option> 
-              </select>
-            </div>
-            <div>
-              <label for="serial_dropdown" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">SERIAL NUMBER IJP</label>
-              <div class="flex gap-2">
-                <select id="serial_dropdown" name="serial_dropdown" required class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> 
-                  <option value="">-- SELECT SERIAL NUMBER --</option> 
-                </select> 
-                <button type="button" id="edit-serial-btn" class="px-4 py-3 bg-blue-500 text-white font-bold rounded-lg uppercase hover:bg-blue-600 transition-all hidden" onclick="window.goToManagement()"> EDIT </button>
-              </div>
-            </div>
-            <div>
-              <label for="line" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">LINE</label> 
-              <input type="text" id="line" name="line" readonly class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white uppercase cursor-not-allowed" placeholder="AUTO-FILL FROM SELECTION">
-            </div>
-            <input type="hidden" id="machine" name="machine">
-            <div>
-              <label for="monitoring_date" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">📅 TANGGAL MONITORING</label> 
-              <input type="date" id="monitoring_date" name="monitoring_date" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
-            </div>
-            <div>
-              <label for="cumulative_op_time" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">⏱️ CUMULATIVE OP TIME (HOURS)</label> 
-              <input type="number" id="cumulative_op_time" name="cumulative_op_time" required min="0" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="0">
-            </div>
-            <div>
-              <label for="ijp_condition" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">KONDISI IJP</label> 
-              <select id="ijp_condition" name="ijp_condition" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> 
-                <option value="">SELECT CONDITION</option> 
-                <option value="OK">OK</option> 
-                <option value="NOT OK">NOT OK</option> 
-              </select>
-            </div>
-            <div>
-              <label for="problem_exists" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">ADA PROBLEM ?</label> 
-              <select id="problem_exists" name="problem_exists" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> 
-                <option value="">SELECT</option> 
-                <option value="TIDAK ADA">TIDAK ADA</option> 
-                <option value="ADA">ADA</option> 
-              </select>
-            </div>
-            <div class="md:col-span-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-lg">
-              <label class="flex items-center gap-3 cursor-pointer"> 
-                <input type="checkbox" id="filter_replaced" name="filter_replaced" class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500"> 
-                <span class="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase">✓ FILTER SET SUDAH DIGANTI (RESET KE 0)</span> 
-              </label>
-              <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 ml-8 uppercase">CENTANG JIKA FILTER SUDAH DIGANTI, OP TIME AKAN RESET KE 0</p>
-            </div>
-          </div>
-          
-          <!-- PROBLEM SECTION -->
-          <div id="problem-section" class="hidden border-t-2 border-gray-300 dark:border-gray-600 pt-6 mt-6">
-            <div class="mb-6">
-              <label for="problem_description" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">DESKRIPSI PROBLEM</label> 
-              <textarea id="problem_description" name="problem_description" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="JELASKAN PROBLEM YANG TERJADI..."></textarea>
-            </div>
-            <div class="mb-6">
-              <label for="problem_action" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">ACTION / SOLUSI</label> 
-              <textarea id="problem_action" name="problem_action" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="TINDAKAN ATAU SOLUSI YANG DIAMBIL..."></textarea>
-            </div>
-            <div class="pt-6 border-t border-gray-300 dark:border-gray-600">
-              <label for="photo_upload" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">📸 UPLOAD FOTO IJP (MAX 5MB)</label>
-              <div class="flex items-center gap-4 mb-3">
-                <input type="file" id="photo_upload" name="photo_upload" accept="image/*" class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500 file:text-white hover:file:bg-emerald-600">
-                <div id="photo-preview" class="hidden w-20 h-20 rounded-lg overflow-hidden border-2 border-emerald-400 shadow-lg">
-                  <img id="preview-img" src="" alt="Preview" class="w-full h-full object-cover">
-                </div>
-              </div>
-              <p id="photo-filename" class="text-xs text-gray-500 dark:text-gray-400 uppercase">NO FILE SELECTED</p>
-            </div>
-          </div>
-          
-          <div>
-            <label for="notes" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">CATATAN KHUSUS</label> 
-            <textarea id="notes" name="notes" rows="4" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none" placeholder="MASUKKAN SARAN PERBAIKAN..."></textarea>
-          </div>
-          
-          <div class="flex gap-4">
-            <button type="submit" id="submit-monitoring" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold rounded-lg uppercase tracking-wide hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg> SUBMIT DATA 
-            </button> 
-            <button type="reset" id="reset-form" class="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-lg uppercase tracking-wide hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"> RESET </button>
-          </div>
-        </form>
-        <div id="form-success" class="hidden mt-4 p-4 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 rounded-lg">
-          <p class="text-emerald-700 dark:text-emerald-400 font-semibold uppercase">✓ DATA SUBMITTED SUCCESSFULLY!</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- WEEKLY PAGE -->
-    <section id="page-weekly" class="page hidden">
-      <div class="mb-6">
-        <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">WEEKLY ANALYSIS</h2>
-        <p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">TRACK CUMULATIVE OP TIME BY WEEK</p>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <label for="week_selector" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-3">SELECT WEEK</label> 
-        <select id="week_selector" class="w-full md:w-64 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"> 
-          <option value="">-- LOADING WEEKS --</option> 
-        </select>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-cyan-200 dark:border-cyan-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></div><span class="text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase">WEEKLY</span></div><p id="weekly-total" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">TOTAL OP TIME (HRS)</p></div>
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-purple-200 dark:border-purple-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div><span class="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase">ENTRIES</span></div><p id="weekly-entries" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">MONITORING ENTRIES</p></div>
-        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-orange-200 dark:border-orange-800 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div><span class="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">AVG</span></div><p id="weekly-avg" class="font-orbitron text-3xl font-bold text-gray-800 dark:text-white">0</p><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">AVG OP TIME/ENTRY</p></div>
+        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg></div><span class="text-xs font-bold text-emerald-600 uppercase">TOTAL</span></div><p id="stat-total" class="font-orbitron text-3xl font-bold">0</p><p class="text-xs text-gray-500 uppercase mt-1">IJP UNITS</p></div>
+        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-cyan-200 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-cyan-100 dark:bg-cyan-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div><span class="text-xs font-bold text-cyan-600 uppercase">ACTIVE</span></div><p id="stat-active" class="font-orbitron text-3xl font-bold">0</p><p class="text-xs text-gray-500 uppercase mt-1">MONITORED</p></div>
+        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-purple-200 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg></div><span class="text-xs font-bold text-purple-600 uppercase">LINES</span></div><p id="stat-lines" class="font-orbitron text-3xl font-bold">0</p><p class="text-xs text-gray-500 uppercase mt-1">ACTIVE LINES</p></div>
+        <div class="card-gradient bg-white dark:bg-gray-800 rounded-xl p-4 border border-red-200 shadow-lg"><div class="flex items-center justify-between mb-3"><div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center"><svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2M6 9v2a6 6 0 0012 0V9m-3 7h6a2 2 0 002-2v-5a2 2 0 00-2-2h-6a2 2 0 00-2 2v5a2 2 0 002 2z" /></svg></div><span class="text-xs font-bold text-red-600 uppercase">PROBLEM</span></div><p id="stat-problems" class="font-orbitron text-3xl font-bold">0</p><p class="text-xs text-gray-500 uppercase mt-1">ACTIVE ISSUES</p></div>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"><div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">WEEKLY TREND</h3><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">CUMULATIVE TIME PROGRESSION</p></div><div class="p-4 md:p-6"><div style="position: relative; height: 300px; width: 100%;"><canvas id="weekly-trend-chart"></canvas></div></div></div>
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"><div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">MACHINE COMPARISON</h3><p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">OP TIME BY MACHINE THIS WEEK</p></div><div class="p-4 md:p-6"><div style="position: relative; height: 300px; width: 100%;"><canvas id="machine-comparison-chart"></canvas></div></div></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 overflow-hidden"><div class="px-6 py-4 border-b"><h3 class="font-orbitron font-bold text-lg uppercase">PARETO OPERATION TIME</h3><p class="text-xs text-gray-500">⚠️ WARNING: 10000 HRS | 🔴 CRITICAL: 15000 HRS</p></div><div class="p-4 md:p-6"><div style="height:300px;"><canvas id="monitoring-chart"></canvas></div></div></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 overflow-hidden"><div class="px-6 py-4 border-b"><h3 class="font-orbitron font-bold text-lg uppercase">PROBLEM SUMMARY</h3><p class="text-xs text-gray-500">ACTIVE ISSUES BY TYPE WITH PERCENTAGE</p></div><div class="p-4 md:p-6"><div style="height:280px;"><canvas id="problem-chart"></canvas></div><div id="problem-stats-summary" class="mt-6 grid grid-cols-2 gap-4"><div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 text-center shadow-lg"><span id="problem-percent" class="text-3xl font-orbitron font-bold text-white">0%</span><p class="text-xs font-bold text-white/90 uppercase mt-1">PROBLEM</p><div><span id="problem-count" class="text-sm font-bold text-white">0 UNIT</span></div></div><div class="bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-xl p-4 text-center shadow-lg"><span id="normal-percent" class="text-3xl font-orbitron font-bold text-white">0%</span><p class="text-xs font-bold text-white/90 uppercase mt-1">NORMAL</p><div><span id="normal-count" class="text-sm font-bold text-white">0 UNIT</span></div></div></div><div class="mt-6"><div class="flex justify-between text-xs font-bold mb-2"><span class="text-red-600">PROBLEM</span><span class="text-emerald-600">NORMAL</span></div><div class="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden"><div id="problem-progress-bar" class="h-full bg-gradient-to-r from-red-500 to-emerald-500 transition-all duration-500" style="width:0%"></div></div><p id="problem-ratio" class="text-xs text-center mt-3 uppercase font-bold">⚖️ PROBLEM RATIO: 0% : 0%</p></div></div></div>
       </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">WEEKLY MONITORING ENTRIES</h3></div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50 dark:bg-gray-900">
-              <tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">DATE</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">LINE</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">SERIAL</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">CUMULATIVE OP TIME</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">WEEKLY INCREMENT</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">KONDISI</th></tr>
-            </thead>
-            <tbody id="weekly-table" class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">SELECT A WEEK TO VIEW DATA</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border overflow-hidden"><div class="px-6 py-4 border-b flex flex-wrap items-center justify-between gap-4"><h3 class="font-orbitron font-bold text-lg uppercase">MONITORING DATA</h3><div class="flex flex-wrap gap-4"><select id="line-filter" class="px-3 py-2 rounded-lg border bg-gray-50 dark:bg-gray-700 text-sm font-bold uppercase"><option value="ALL">SEMUA LINE</option></select><select id="status-filter" class="px-3 py-2 rounded-lg border bg-gray-50 dark:bg-gray-700 text-sm font-bold uppercase"><option value="ALL">SEMUA STATUS</option><option value="NORMAL">🟢 NORMAL</option><option value="WARNING">🟡 WARNING</option><option value="CRITICAL">🔴 CRITICAL</option></select><button id="reset-filters" class="px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-xs font-bold uppercase">RESET</button><span id="filtered-count" class="text-xs bg-emerald-100 dark:bg-emerald-900/30 px-3 py-2 rounded-full font-bold">0/0</span></div></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-50 dark:bg-gray-900"><tr><th class="px-4 py-3 text-left text-xs font-bold uppercase">LINE</th><th class="px-4 py-3 text-left text-xs font-bold uppercase">SERIAL</th><th class="px-4 py-3 text-left text-xs font-bold uppercase">MACHINE</th><th class="px-4 py-3 text-left text-xs font-bold uppercase">OP TIME</th><th class="px-4 py-3 text-left text-xs font-bold uppercase">KONDISI</th><th class="px-4 py-3 text-left text-xs font-bold uppercase">PROBLEM</th><th class="px-4 py-3 text-left text-xs font-bold uppercase">STATUS</th></tr></thead><tbody id="monitoring-table"><tr><td colspan="7" class="px-4 py-8 text-center uppercase">LOADING DATA...</td></tr></tbody></table></div></div>
     </section>
-
-    <!-- MANAGEMENT PAGE -->
-    <section id="page-management" class="page hidden">
-      <div class="mb-6 flex items-center justify-between">
-        <div><h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">MANAGEMENT</h2><p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">UPLOAD &amp; MANAGE IJP SERIAL NUMBER DATA</p></div>
-        <button id="export-management" class="flex items-center gap-2 px-4 py-2 bg-green-500 text-white font-bold rounded-lg uppercase hover:bg-green-600 transition-all shadow-lg text-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> EXPORT MANAGEMENT</button>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase mb-4">ADD IJP DATA</h3>
-        <form id="management-form" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div><label for="machine_name" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">NAMA MESIN</label><input type="text" id="machine_name" name="machine_name" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="ENTER MACHINE NAME"></div>
-            <div><label for="line_mg" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">LINE</label><input type="text" id="line_mg" name="line_mg" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="ENTER LINE"></div>
-            <div><label for="service" class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">SERIAL NUMBER IJP</label><input type="text" id="service" name="service" required class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="ENTER SERIAL NUMBER IJP"></div>
-          </div>
-          <button type="submit" id="submit-management" class="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold rounded-lg uppercase tracking-wide hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg> UPLOAD DATA</button>
-        </form>
-        <div id="management-success" class="hidden mt-4 p-4 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-700 rounded-lg"><p class="text-emerald-700 dark:text-emerald-400 font-semibold uppercase">✓ DATA UPLOADED SUCCESSFULLY!</p></div>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">IJP REGISTRY</h3></div>
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-gray-50 dark:bg-gray-900">
-              <tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">NAMA MESIN</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">LINE</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">SERIAL NUMBER IJP</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ACTIONS</th></tr>
-            </thead>
-            <tbody id="management-table" class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO IJP DATA REGISTERED</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- AUDIT PAGE -->
-    <section id="page-audit" class="page hidden">
-      <div class="mb-6 flex items-center justify-between">
-        <div><h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">AUDIT TRAIL</h2><p class="text-gray-500 dark:text-gray-400 uppercase text-sm tracking-wide">SYSTEM ACTIVITY LOG</p></div>
-        <button id="export-audit" class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white font-bold rounded-lg uppercase hover:bg-orange-600 transition-all shadow-lg text-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> EXPORT AUDIT TRAIL</button>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700"><h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase">ACTIVITY LOG <span id="audit-count" class="ml-4 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-sm font-bold rounded-full uppercase">0 RECORDS</span></h3></div>
-        <div class="overflow-x-auto max-h-96">
-          <table class="w-full">
-            <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0">
-              <tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">TIMESTAMP</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ACTION</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">DETAILS</th></tr>
-            </thead>
-            <tbody id="audit-table" class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr><td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO ACTIVITY RECORDED</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+    <!-- FORM, WEEKLY, MANAGEMENT, AUDIT sections (simplified but functional) -->
+    <section id="page-form" class="page hidden"><div class="mb-6"><h2 class="font-orbitron font-bold text-2xl uppercase">FORM INPUT IJP</h2></div><div class="bg-white dark:bg-gray-800 rounded-xl p-6"><form id="monitoring-form"><div class="grid md:grid-cols-2 gap-6"><div><label class="block text-sm font-bold uppercase">MESIN</label><select id="machine_dropdown" required class="w-full px-4 py-3 rounded-lg border"><option value="">-- SELECT --</option></select></div><div><label class="block text-sm font-bold uppercase">SERIAL IJP</label><div class="flex gap-2"><select id="serial_dropdown" required class="flex-1 px-4 py-3 rounded-lg border"><option value="">-- SELECT --</option></select><button type="button" id="edit-serial-btn" class="px-4 py-3 bg-blue-500 text-white font-bold rounded-lg hidden">EDIT</button></div></div><div><label class="block text-sm font-bold uppercase">LINE</label><input type="text" id="line" readonly class="w-full px-4 py-3 rounded-lg border bg-gray-100"></div><input type="hidden" id="machine"><div><label class="block text-sm font-bold uppercase">TANGGAL</label><input type="date" id="monitoring_date" required class="w-full px-4 py-3 rounded-lg border"></div><div><label class="block text-sm font-bold uppercase">CUMULATIVE OP TIME (HRS)</label><input type="number" id="cumulative_op_time" required class="w-full px-4 py-3 rounded-lg border"></div><div><label class="block text-sm font-bold uppercase">KONDISI IJP</label><select id="ijp_condition" required class="w-full px-4 py-3 rounded-lg border"><option value="">SELECT</option><option value="OK">OK</option><option value="NOT OK">NOT OK</option></select></div><div><label class="block text-sm font-bold uppercase">ADA PROBLEM ?</label><select id="problem_exists" required class="w-full px-4 py-3 rounded-lg border"><option value="">SELECT</option><option value="TIDAK ADA">TIDAK ADA</option><option value="ADA">ADA</option></select></div><div class="md:col-span-2 p-4 bg-blue-50 rounded-lg"><label class="flex items-center gap-2"><input type="checkbox" id="filter_replaced"><span class="font-bold uppercase">✓ FILTER SET SUDAH DIGANTI (RESET KE 0)</span></label></div></div><div id="problem-section" class="hidden border-t pt-6 mt-6"><textarea id="problem_description" rows="2" placeholder="DESKRIPSI PROBLEM" class="w-full mb-4 px-4 py-3 rounded-lg border"></textarea><textarea id="problem_action" rows="2" placeholder="ACTION / SOLUSI" class="w-full mb-4 px-4 py-3 rounded-lg border"></textarea><input type="file" id="photo_upload" accept="image/*" class="w-full"><div id="photo-preview" class="hidden w-20 h-20 mt-2"><img id="preview-img" class="w-full h-full object-cover rounded"></div></div><textarea id="notes" rows="3" placeholder="CATATAN KHUSUS" class="w-full mt-4 px-4 py-3 rounded-lg border"></textarea><div class="flex gap-4 mt-6"><button type="submit" class="px-6 py-3 bg-emerald-500 text-white font-bold rounded-lg uppercase">SUBMIT</button><button type="reset" class="px-6 py-3 bg-gray-200 font-bold rounded-lg uppercase">RESET</button></div></form><div id="form-success" class="hidden mt-4 p-4 bg-emerald-100 rounded-lg"></div></div></section>
+    <section id="page-weekly" class="page hidden"><div class="mb-6"><h2 class="font-orbitron font-bold text-2xl uppercase">WEEKLY ANALYSIS</h2></div><div class="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6"><label class="block font-bold uppercase mb-2">SELECT WEEK</label><select id="week_selector" class="w-full md:w-64 px-4 py-3 rounded-lg border"></select></div><div class="grid md:grid-cols-3 gap-4 mb-6"><div class="bg-white dark:bg-gray-800 rounded-xl p-4 border"><p class="font-bold uppercase">TOTAL OP TIME</p><p id="weekly-total" class="font-orbitron text-3xl font-bold">0</p></div><div class="bg-white dark:bg-gray-800 rounded-xl p-4 border"><p class="font-bold uppercase">ENTRIES</p><p id="weekly-entries" class="font-orbitron text-3xl font-bold">0</p></div><div class="bg-white dark:bg-gray-800 rounded-xl p-4 border"><p class="font-bold uppercase">AVG / ENTRY</p><p id="weekly-avg" class="font-orbitron text-3xl font-bold">0</p></div></div><div class="grid md:grid-cols-2 gap-6 mb-6"><div class="bg-white dark:bg-gray-800 rounded-xl p-4"><canvas id="weekly-trend-chart" style="height:300px;"></canvas></div><div class="bg-white dark:bg-gray-800 rounded-xl p-4"><canvas id="machine-comparison-chart" style="height:300px;"></canvas></div></div><div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden"><table class="w-full"><thead><tr><th class="px-4 py-3 text-left text-xs uppercase">DATE</th><th class="px-4 py-3 text-left text-xs uppercase">LINE</th><th class="px-4 py-3 text-left text-xs uppercase">SERIAL</th><th class="px-4 py-3 text-left text-xs uppercase">OP TIME</th><th class="px-4 py-3 text-left text-xs uppercase">INCREMENT</th><th class="px-4 py-3 text-left text-xs uppercase">KONDISI</th></tr></thead><tbody id="weekly-table"></tbody></table></div></section>
+    <section id="page-management" class="page hidden"><div class="mb-6 flex justify-between"><h2 class="font-orbitron font-bold text-2xl uppercase">MANAGEMENT</h2><button id="export-management" class="bg-green-500 text-white px-4 py-2 rounded-lg font-bold uppercase text-sm">EXPORT</button></div><div class="bg-white dark:bg-gray-800 rounded-xl p-6 mb-6"><form id="management-form"><div class="grid md:grid-cols-3 gap-6"><input type="text" id="machine_name" placeholder="NAMA MESIN" required class="px-4 py-3 rounded-lg border"><input type="text" id="line_mg" placeholder="LINE" required class="px-4 py-3 rounded-lg border"><input type="text" id="service" placeholder="SERIAL NUMBER IJP" required class="px-4 py-3 rounded-lg border"></div><button type="submit" class="mt-6 px-6 py-3 bg-emerald-500 text-white font-bold rounded-lg uppercase">UPLOAD DATA</button></form><div id="management-success" class="hidden mt-4 p-4 bg-emerald-100 rounded-lg"></div></div><div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden"><table class="w-full"><thead><tr><th class="px-4 py-3 text-left">NAMA MESIN</th><th class="px-4 py-3 text-left">LINE</th><th class="px-4 py-3 text-left">SERIAL NUMBER</th><th class="px-4 py-3 text-left">ACTIONS</th></tr></thead><tbody id="management-table"></tbody></table></div></section>
+    <section id="page-audit" class="page hidden"><div class="mb-6 flex justify-between"><h2 class="font-orbitron font-bold text-2xl uppercase">AUDIT TRAIL</h2><button id="export-audit" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold uppercase text-sm">EXPORT</button></div><div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden"><table class="w-full"><thead><tr><th class="px-4 py-3 text-left">TIMESTAMP</th><th class="px-4 py-3 text-left">ACTION</th><th class="px-4 py-3 text-left">DETAILS</th></tr></thead><tbody id="audit-table"></tbody></table></div></section>
   </main>
-
-  <!-- FOOTER -->
-  <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3">
-    <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 uppercase">
-      <span>© 2024 IJP MONITORING SYSTEM - SECURE MANAGEMENT</span> 
-      <span id="current-time" class="font-orbitron"></span>
-    </div>
-  </footer>
+  <footer class="bg-white dark:bg-gray-800 border-t px-4 py-3"><div class="flex justify-between text-xs"><span>© 2024 IJP MONITORING SYSTEM</span><span id="current-time" class="font-orbitron"></span></div></footer>
 </div>
-
-<!-- DELETE MODAL -->
-<div id="delete-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
-  <div class="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
-    <h3 class="font-orbitron font-bold text-lg text-gray-800 dark:text-white uppercase mb-4">CONFIRM DELETE</h3>
-    <p class="text-gray-600 dark:text-gray-400 uppercase mb-6">ARE YOU SURE YOU WANT TO DELETE THIS RECORD?</p>
-    <div class="flex gap-4">
-      <button id="confirm-delete" class="flex-1 px-4 py-2 bg-red-500 text-white font-bold rounded-lg uppercase hover:bg-red-600 transition-all">DELETE</button> 
-      <button id="cancel-delete" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-lg uppercase hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">CANCEL</button>
-    </div>
-  </div>
-</div>
-
-<!-- LOGIN MODAL -->
-<div id="login-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
-  <div class="login-card bg-white dark:bg-gray-800 rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl border-2 border-emerald-500">
-    <div class="text-center mb-6">
-      <div class="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center mx-auto mb-4">
-        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-      </div>
-      <h2 class="font-orbitron font-bold text-2xl text-gray-800 dark:text-white uppercase mb-2">MANAGEMENT ACCESS</h2>
-      <p class="text-gray-500 dark:text-gray-400 uppercase text-sm">ENTER PASSWORD TO CONTINUE</p>
-    </div>
-    <div class="space-y-4">
-      <div><label class="block text-sm font-bold text-gray-700 dark:text-gray-300 uppercase mb-2">PASSWORD</label><input type="password" id="login-password" class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" placeholder="ENTER PASSWORD"></div>
-      <div id="login-error" class="text-red-500 text-sm font-bold uppercase hidden">INVALID PASSWORD!</div>
-      <button id="login-submit" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold rounded-lg uppercase tracking-wide hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg">LOGIN</button>
-    </div>
-  </div>
-</div>
-
+<div id="delete-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md"><h3 class="font-bold text-lg uppercase">CONFIRM DELETE</h3><p class="my-4">ARE YOU SURE?</p><div class="flex gap-4"><button id="confirm-delete" class="bg-red-500 text-white px-4 py-2 rounded-lg">DELETE</button><button id="cancel-delete" class="bg-gray-200 px-4 py-2 rounded-lg">CANCEL</button></div></div></div>
+<div id="login-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50"><div class="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-md w-full"><div class="text-center mb-6"><div class="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 mx-auto mb-4 flex items-center justify-center"><svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg></div><h2 class="font-orbitron text-2xl font-bold uppercase">MANAGEMENT ACCESS</h2></div><input type="password" id="login-password" placeholder="PASSWORD" class="w-full px-4 py-3 rounded-lg border mb-4"><div id="login-error" class="text-red-500 text-sm hidden">INVALID PASSWORD</div><button id="login-submit" class="w-full py-3 bg-emerald-500 text-white font-bold rounded-lg uppercase">LOGIN</button></div></div>
 <script>
-  // Gunakan pendekatan yang berbeda untuk Supabase
-  (function() {
-    // Konfigurasi Supabase
-    const SUPABASE_URL = 'https://okdvksrprvhgqdyioryf.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZHZrc3JwcnZoZ3FkeWlvcnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mjc5OTYsImV4cCI6MjA4NjUwMzk5Nn0.cfrGXxCgbPWpEdhBGC6RP8JonSTCjN1d6IOr4qyXSQw'
-    
-    // APP STATE
-    let allData = []
-    let managementData = []
-    let deleteTarget = null
-    let chartInstance = null
-    let problemChartInstance = null
-    let weeklyTrendChart = null
-    let machineComparisonChart = null
-    let loadTimeout
-    let isAuthenticated = false
-    const MANAGEMENT_PASSWORD = 'Dankos2026'
-    
-    // FILTER STATE
-    let currentLineFilter = 'ALL'
-    let currentStatusFilter = 'ALL'
-    
-    // CONNECTION STATE
-    let connectionRetries = 0
-    const MAX_RETRIES = 3
-    let supabase = null
+  (function(){
+    const SUPABASE_URL = 'https://okdvksrprvhgqdyioryf.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZHZrc3JwcnZoZ3FkeWlvcnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mjc5OTYsImV4cCI6MjA4NjUwMzk5Nn0.cfrGXxCgbPWpEdhBGC6RP8JonSTCjN1d6IOr4qyXSQw';
+    let supabase = null;
+    let allData = [], managementData = [];
+    let isAuth = false;
+    const PASS = 'Dankos2026';
+    let chartInst = null, problemChart = null, weeklyTrend = null, machineComp = null;
+    let currentLineFilter='ALL', currentStatusFilter='ALL';
 
-    // ================== HELPER FUNCTIONS ==================
-    
-    function getStatusFromOpTime(opTime) {
-      if (opTime >= 15000) return 'CRITICAL'
-      if (opTime >= 10000) return 'WARNING'
-      return 'NORMAL'
+    async function initSupabase(){
+      if(window.supabase && window.supabase.createClient){
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { error } = await supabase.from('monitoring_data').select('count', { count:'exact', head:true });
+        if(!error) { showConnStatus(true); return true; }
+        else throw error;
+      } else { throw new Error('Supabase not loaded'); }
     }
-
-    // ================== CONNECTION FUNCTIONS ==================
-    
-    async function initSupabase() {
-      try {
-        // Cek apakah library sudah ada
-        if (typeof supabaseJs === 'undefined' && typeof createClient === 'undefined') {
-          throw new Error('Supabase library not loaded')
-        }
-        
-        // Inisialisasi supabase
-        const client = window.supabaseJs?.createClient || window.createClient
-        if (!client) {
-          throw new Error('Cannot find createClient function')
-        }
-        
-        supabase = client(SUPABASE_URL, SUPABASE_ANON_KEY)
-        
-        // Test koneksi
-        const { error } = await supabase.from('monitoring_data').select('count', { count: 'exact', head: true })
-        if (error) throw error
-        
-        console.log('✅ Supabase connected')
-        showConnectionStatus('connected')
-        return true
-      } catch (error) {
-        console.error('❌ Supabase connection failed:', error)
-        showConnectionStatus('disconnected')
-        return false
-      }
-    }
-
-    function showConnectionStatus(status, message = '') {
-      const statusDiv = document.getElementById('connection-status')
-      if (!statusDiv) return
-      
-      statusDiv.classList.remove('hidden')
-      
-      if (status === 'connected') {
-        statusDiv.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-2xl border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 animate-slideDown'
-        statusDiv.innerHTML = `
-          <div class="flex items-center gap-3">
-            <span class="text-2xl">✅</span>
-            <p class="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase">TERKONEKSI KE DATABASE</p>
-          </div>
-        `
-        setTimeout(() => statusDiv.classList.add('hidden'), 3000)
+    function showConnStatus(ok, msg=''){
+      const div=document.getElementById('connection-status');
+      if(!div) return;
+      div.classList.remove('hidden');
+      if(ok){
+        div.className='fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-2xl border-l-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30';
+        div.innerHTML='<div class="flex items-center gap-3"><span>✅</span><p class="text-sm font-bold uppercase">TERKONEKSI DATABASE</p></div>';
+        setTimeout(()=>div.classList.add('hidden'),3000);
       } else {
-        statusDiv.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl border-l-4 border-red-500 bg-red-50 dark:bg-red-900/30 animate-slideDown'
-        statusDiv.innerHTML = `
-          <div class="flex items-center gap-3">
-            <span class="text-2xl">🔴</span>
-            <div>
-              <p class="text-sm font-bold text-red-700 dark:text-red-400 uppercase">GAGAL TERKONEKSI KE DATABASE</p>
-              <p class="text-xs text-red-600 dark:text-red-300 mt-1">${message || 'Periksa koneksi internet Anda'}</p>
-              <button onclick="window.location.reload()" class="mt-3 px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg uppercase hover:bg-red-600 transition-all w-full">
-                COBA LAGI
-              </button>
-            </div>
-          </div>
-        `
+        div.className='fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-lg shadow-2xl border-l-4 border-red-500 bg-red-50';
+        div.innerHTML=`<div><span>🔴 GAGAL KONEKSI</span><p class="text-xs">${msg}</p><button onclick="location.reload()" class="mt-2 px-4 py-1 bg-red-500 text-white rounded">COBA LAGI</button></div>`;
       }
     }
-
-    // ================== AUTH FUNCTIONS ==================
-    
-    function updateAuthUI() {
-      const authIndicator = document.getElementById('auth-indicator')
-      const authText = document.getElementById('auth-text')
-      const logoutBtn = document.getElementById('logout-btn')
-      if (isAuthenticated) {
-        authIndicator.className = 'w-2 h-2 rounded-full bg-emerald-500'
-        authText.textContent = 'LOGGED IN'
-        logoutBtn.classList.remove('hidden')
-      } else {
-        authIndicator.className = 'w-2 h-2 rounded-full bg-red-500'
-        authText.textContent = 'NOT LOGGED IN'
-        logoutBtn.classList.add('hidden')
+    async function loadAll(){
+      if(!supabase) return;
+      const { data:mon, error:e1 } = await supabase.from('monitoring_data').select('*').order('monitoring_date',{ascending:false});
+      if(e1) throw e1;
+      const { data:mg, error:e2 } = await supabase.from('management_data').select('*').order('created_at',{ascending:false});
+      if(e2) throw e2;
+      const { data:aud, error:e3 } = await supabase.from('audit_logs').select('*').order('created_at',{ascending:false});
+      if(e3) throw e3;
+      allData = [...mon.map(d=>({...d,table_type:'monitoring'})), ...mg.map(d=>({...d,table_type:'management'})), ...aud.map(d=>({...d,table_type:'audit'}))];
+      managementData = mg;
+      updateDashboardUI();
+      updateFormDropdowns();
+      updateLineFilter();
+      updateMonitoringTable();
+      if(isAuth){ updateMgmtTable(); updateAuditTable(); }
+      updateCriticalAlerts();
+      populateWeekSelector();
+    }
+    function getStatus(op){ if(op>=15000) return 'CRITICAL'; if(op>=10000) return 'WARNING'; return 'NORMAL'; }
+    function updateDashboardUI(){
+      const mon = allData.filter(d=>d.table_type==='monitoring');
+      const mgmt = allData.filter(d=>d.table_type==='management');
+      const problems = mon.filter(d=>d.problem_exists==='ADA').length;
+      const normal = mon.filter(d=>d.problem_exists==='TIDAK ADA').length;
+      const total = problems+normal;
+      document.getElementById('stat-total').innerText=mgmt.length;
+      document.getElementById('stat-active').innerText=mon.length;
+      document.getElementById('stat-problems').innerText=problems;
+      const lines = new Set(mon.map(d=>d.line));
+      document.getElementById('stat-lines').innerText=lines.size;
+      let pct = total?((problems/total)*100).toFixed(1):0;
+      let nPct = total?((normal/total)*100).toFixed(1):0;
+      document.getElementById('problem-percent').innerText=`${pct}%`;
+      document.getElementById('normal-percent').innerText=`${nPct}%`;
+      document.getElementById('problem-count').innerText=`${problems} UNIT`;
+      document.getElementById('normal-count').innerText=`${normal} UNIT`;
+      let barWidth = total?(problems/total)*100:0;
+      document.getElementById('problem-progress-bar').style.width=`${barWidth}%`;
+      document.getElementById('problem-ratio').innerHTML=`⚖️ PROBLEM RATIO: <span class="text-red-500">${pct}%</span> : <span class="text-emerald-500">${nPct}%</span>`;
+      // charts
+      const ctx = document.getElementById('monitoring-chart')?.getContext('2d');
+      if(ctx){
+        let machines = mon.map(m=>({machine:m.machine||'UNKNOWN', op:m.cumulative_op_time||0})).sort((a,b)=>a.op-b.op);
+        if(chartInst) chartInst.destroy();
+        chartInst = new Chart(ctx,{type:'bar',data:{labels:machines.map(m=>m.machine), datasets:[{label:'OP TIME (HRS)',data:machines.map(m=>m.op),backgroundColor:machines.map(m=>m.op>=15000?'#ef4444':m.op>=10000?'#f59e0b':'#10b981')}]},options:{responsive:true,maintainAspectRatio:false}});
+      }
+      const probCtx = document.getElementById('problem-chart')?.getContext('2d');
+      if(probCtx){
+        if(problemChart) problemChart.destroy();
+        problemChart = new Chart(probCtx,{type:'doughnut',data:{labels:[`PROBLEM (${problems}|${pct}%)`,`NORMAL (${normal}|${nPct}%)`], datasets:[{data:[problems,normal],backgroundColor:['#ef4444','#10b981'],borderWidth:2}]},options:{cutout:'65%',responsive:true}});
       }
     }
-
-    function checkAuthStatus() {
-      const savedAuth = sessionStorage.getItem('ijp_auth')
-      isAuthenticated = savedAuth === 'true'
-      updateAuthUI()
+    function updateMonitoringTable(){
+      let data = allData.filter(d=>d.table_type==='monitoring');
+      if(currentLineFilter!=='ALL') data=data.filter(d=>d.line===currentLineFilter);
+      if(currentStatusFilter!=='ALL') data=data.filter(d=>getStatus(d.cumulative_op_time||0)===currentStatusFilter);
+      const tbody=document.getElementById('monitoring-table');
+      if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="text-center py-8">TIDAK ADA DATA</td></tr>'; return; }
+      tbody.innerHTML=data.slice(0,20).map(item=>{
+        let op=item.cumulative_op_time||0, st=getStatus(op);
+        let stClass= st==='CRITICAL'?'bg-red-100 text-red-700':(st==='WARNING'?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700');
+        return `<tr><td class="px-4 py-2 font-bold uppercase">${item.line||'-'}</td><td>${item.serial_number||'-'}</td><td>${item.machine||'-'}</td><td class="font-orbitron">${op} HRS</td><td><span class="px-2 py-1 rounded-full text-xs font-bold ${item.ijp_condition==='OK'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}">${item.ijp_condition||'-'}</span></td><td><span class="px-2 py-1 rounded-full text-xs font-bold ${item.problem_exists==='ADA'?'bg-red-100 text-red-700':'bg-emerald-100 text-emerald-700'}">${item.problem_exists||'-'}</span></td><td><span class="px-2 py-1 rounded-full text-xs font-bold ${stClass}">${st}</span></td></tr>`;
+      }).join('');
     }
-
-    // ================== THEME TOGGLE ==================
-    
-    function setupThemeToggle() {
-      const toggle = document.getElementById('theme-toggle')
-      const html = document.documentElement
-      const sunIcon = document.getElementById('sun-icon')
-      const moonIcon = document.getElementById('moon-icon')
-
-      const initializeTheme = () => {
-        const saved = localStorage.getItem('theme')
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        if (saved === 'dark' || (!saved && prefersDark)) {
-          html.classList.add('dark')
-          sunIcon.classList.add('hidden')
-          moonIcon.classList.remove('hidden')
-        } else {
-          html.classList.remove('dark')
-          sunIcon.classList.remove('hidden')
-          moonIcon.classList.add('hidden')
+    function updateLineFilter(){
+      let lines=[...new Set(allData.filter(d=>d.table_type==='monitoring').map(d=>d.line).filter(Boolean))];
+      let sel=document.getElementById('line-filter');
+      sel.innerHTML='<option value="ALL">SEMUA LINE</option>'+lines.map(l=>`<option value="${l}">${l}</option>`).join('');
+    }
+    function updateFormDropdowns(){
+      let machines=[...new Set(managementData.map(d=>d.machine_name))];
+      let machineSel=document.getElementById('machine_dropdown');
+      machineSel.innerHTML='<option value="">-- SELECT MACHINE --</option>'+machines.map(m=>`<option value="${m}">${m}</option>`).join('');
+    }
+    function populateWeekSelector(){
+      let weeks=new Set();
+      allData.filter(d=>d.table_type==='monitoring').forEach(d=>{
+        if(d.monitoring_date){
+          let dte=new Date(d.monitoring_date);
+          let week=Math.ceil((((dte-dte.getDay())-new Date(dte.getFullYear(),0,1))/86400000+1)/7);
+          weeks.add(`${dte.getFullYear()}-W${String(week).padStart(2,'0')}`);
         }
-      }
-      initializeTheme()
-
-      toggle.addEventListener('click', () => {
-        const isDark = html.classList.toggle('dark')
-        localStorage.setItem('theme', isDark ? 'dark' : 'light')
-        if (isDark) {
-          sunIcon.classList.add('hidden')
-          moonIcon.classList.remove('hidden')
-        } else {
-          sunIcon.classList.remove('hidden')
-          moonIcon.classList.add('hidden')
+      });
+      let sorted=Array.from(weeks).sort().reverse();
+      let sel=document.getElementById('week_selector');
+      sel.innerHTML='<option value="">-- SELECT WEEK --</option>'+sorted.map(w=>`<option value="${w}">WEEK ${w}</option>`).join('');
+      if(sorted.length) updateWeeklyAnalysis(sorted[0]);
+      sel.onchange=e=>updateWeeklyAnalysis(e.target.value);
+    }
+    function updateWeeklyAnalysis(weekStr){
+      let [year,week]=weekStr.split('-W');
+      let weekNum=parseInt(week);
+      let data=allData.filter(d=>d.table_type==='monitoring'&& d.monitoring_date && new Date(d.monitoring_date).getFullYear()==parseInt(year) && Math.ceil((((new Date(d.monitoring_date)-new Date(d.monitoring_date).getDay())-new Date(year,0,1))/86400000+1)/7)===weekNum);
+      let total=data.reduce((s,d)=>s+(d.cumulative_op_time||0),0);
+      document.getElementById('weekly-total').innerText=total;
+      document.getElementById('weekly-entries').innerText=data.length;
+      document.getElementById('weekly-avg').innerText=data.length?Math.round(total/data.length):0;
+      if(weeklyTrend) weeklyTrend.destroy();
+      let sorted=data.sort((a,b)=>new Date(a.monitoring_date)-new Date(b.monitoring_date));
+      weeklyTrend = new Chart(document.getElementById('weekly-trend-chart'),{type:'line',data:{labels:sorted.map(d=>new Date(d.monitoring_date).toLocaleDateString()), datasets:[{label:'OP TIME (HRS)',data:sorted.map(d=>d.cumulative_op_time),borderColor:'#10b981'}]}});
+      let machMap={};
+      data.forEach(d=>{ let m=d.machine||'UNKNOWN'; machMap[m]=(machMap[m]||0)+(d.cumulative_op_time||0); });
+      if(machineComp) machineComp.destroy();
+      machineComp = new Chart(document.getElementById('machine-comparison-chart'),{type:'bar',data:{labels:Object.keys(machMap), datasets:[{label:'TOTAL OP TIME',data:Object.values(machMap),backgroundColor:'#06b6d4'}]}});
+      document.getElementById('weekly-table').innerHTML=data.map((item,idx)=>{
+        let inc=0;
+        if(idx>0 && sorted[idx-1].serial_number===item.serial_number) inc=Math.max(0,(item.cumulative_op_time||0)-(sorted[idx-1].cumulative_op_time||0));
+        return `<tr><td class="px-4 py-2">${new Date(item.monitoring_date).toLocaleDateString()}</td><td>${item.line}</td><td>${item.serial_number}</td><td>${item.cumulative_op_time||0}</td><td class="text-cyan-600 font-bold">${inc}</td><td>${item.ijp_condition}</td></tr>`;
+      }).join('');
+    }
+    function updateCriticalAlerts(){
+      let mon=allData.filter(d=>d.table_type==='monitoring');
+      let critical=mon.filter(d=>(d.cumulative_op_time||0)>=15000);
+      let warning=mon.filter(d=>(d.cumulative_op_time||0)>=10000 && (d.cumulative_op_time||0)<15000);
+      let html='';
+      critical.forEach(c=>{ html+=`<div class="bg-red-50 border-2 border-red-500 rounded-xl p-4 mb-4"><h3 class="font-bold text-red-700 uppercase">CRITICAL - SERVICE REQUIRED</h3><p>LINE:${c.line} SERIAL:${c.serial_number} OP:${c.cumulative_op_time} HRS</p></div>`; });
+      warning.forEach(w=>{ html+=`<div class="bg-amber-50 border-2 border-amber-500 rounded-xl p-4 mb-4"><h3 class="font-bold text-amber-700 uppercase">WARNING - SCHEDULE REPLACEMENT</h3><p>LINE:${w.line} OP:${w.cumulative_op_time} HRS</p></div>`; });
+      document.getElementById('critical-alerts').innerHTML=html;
+    }
+    function updateMgmtTable(){
+      let mg=allData.filter(d=>d.table_type==='management');
+      let tbody=document.getElementById('management-table');
+      if(!mg.length){ tbody.innerHTML='<tr><td colspan="4" class="text-center py-8">NO DATA</td></tr>'; return; }
+      tbody.innerHTML=mg.map(m=>`<tr><td class="px-4 py-2 uppercase">${m.machine_name}</td><td>${m.line}</td><td><input type="text" data-id="${m.id}" data-original="${m.serial_number}" value="${m.serial_number}" class="border rounded px-2 py-1 text-sm"><button onclick="window.saveSerial('${m.id}',this)" class="ml-2 bg-green-500 text-white px-2 py-1 rounded text-xs">✓</button></td><td><button onclick="window.delRecord({id:'${m.id}'})" class="text-red-500 font-bold">DELETE</button></td></tr>`).join('');
+    }
+    window.saveSerial = async (id,btn)=>{
+      if(!isAuth){ alert('Login required'); return; }
+      let input=document.querySelector(`input[data-id="${id}"]`);
+      let newVal=input.value.toUpperCase();
+      if(!newVal) return;
+      btn.disabled=true;
+      await supabase.from('management_data').update({serial_number:newVal}).eq('id',id);
+      await logAudit('SERIAL UPDATED',`ID:${id}`);
+      btn.disabled=false;
+      loadAll();
+    };
+    window.delRecord = async (rec)=>{ if(!isAuth){ alert('Login required'); return; } if(confirm('DELETE?')){ await supabase.from('management_data').delete().eq('id',rec.id); await logAudit('DELETED',`ID:${rec.id}`); loadAll(); } };
+    function updateAuditTable(){
+      let aud=allData.filter(d=>d.table_type==='audit');
+      let tbody=document.getElementById('audit-table');
+      if(!aud.length){ tbody.innerHTML='<tr><td colspan="3" class="text-center py-8">NO ACTIVITY</td></tr>'; return; }
+      tbody.innerHTML=aud.map(a=>`<tr><td class="px-4 py-2 text-xs">${new Date(a.created_at).toLocaleString()}</td><td class="font-bold">${a.user_action}</td><td>${a.activity}</td></tr>`).join('');
+    }
+    async function logAudit(action,details){
+      if(supabase) await supabase.from('audit_logs').insert([{user_action:action,activity:details}]);
+    }
+    function setupEvents(){
+      document.getElementById('login-submit').onclick=()=>{
+        let pwd=document.getElementById('login-password').value;
+        if(pwd===PASS){ isAuth=true; sessionStorage.setItem('ijp_auth','true'); document.getElementById('login-modal').classList.add('hidden'); updateAuthUI(); loadAll(); }
+        else document.getElementById('login-error').classList.remove('hidden');
+      };
+      document.getElementById('logout-btn').onclick=()=>{ isAuth=false; sessionStorage.removeItem('ijp_auth'); updateAuthUI(); showPage('dashboard'); logAudit('LOGOUT','Manual'); };
+      document.getElementById('theme-toggle').onclick=()=>{ document.documentElement.classList.toggle('dark'); };
+      document.querySelectorAll('.nav-btn').forEach(btn=>{ btn.onclick=()=>{ let pg=btn.dataset.nav; if((pg==='management'||pg==='audit') && !isAuth){ document.getElementById('login-modal').classList.remove('hidden'); return; } showPage(pg); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('bg-emerald-100','dark:bg-emerald-900/30','text-emerald-700')); btn.classList.add('bg-emerald-100','dark:bg-emerald-900/30','text-emerald-700'); }; });
+      document.getElementById('reset-filters').onclick=()=>{ currentLineFilter='ALL'; currentStatusFilter='ALL'; document.getElementById('line-filter').value='ALL'; document.getElementById('status-filter').value='ALL'; updateMonitoringTable(); };
+      document.getElementById('line-filter').onchange=e=>{ currentLineFilter=e.target.value; updateMonitoringTable(); };
+      document.getElementById('status-filter').onchange=e=>{ currentStatusFilter=e.target.value; updateMonitoringTable(); };
+      document.getElementById('export-monitoring').onclick=()=>{ let ws=XLSX.utils.json_to_sheet(allData.filter(d=>d.table_type==='monitoring')); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Monitoring'); XLSX.writeFile(wb,`monitoring-${Date.now()}.xlsx`); };
+      document.getElementById('export-management').onclick=()=>{ if(!isAuth)return; let ws=XLSX.utils.json_to_sheet(allData.filter(d=>d.table_type==='management')); XLSX.writeFile(XLSX.utils.book_new(),ws,'management.xlsx'); };
+      document.getElementById('export-audit').onclick=()=>{ if(!isAuth)return; let ws=XLSX.utils.json_to_sheet(allData.filter(d=>d.table_type==='audit')); XLSX.writeFile(XLSX.utils.book_new(),ws,'audit.xlsx'); };
+      document.getElementById('machine_dropdown').onchange=function(){
+        let serSel=document.getElementById('serial_dropdown');
+        let editBtn=document.getElementById('edit-serial-btn');
+        if(this.value){
+          let recs=managementData.filter(m=>m.machine_name===this.value);
+          serSel.innerHTML='<option value="">-- SELECT SERIAL --</option>'+recs.map(r=>`<option value="${r.serial_number}" data-line="${r.line}">${r.serial_number}</option>`).join('');
+          editBtn.classList.remove('hidden');
+        } else { serSel.innerHTML='<option value="">-- SELECT --</option>'; editBtn.classList.add('hidden'); }
+        document.getElementById('machine').value=this.value;
+      };
+      document.getElementById('serial_dropdown').onchange=function(){
+        let opt=this.options[this.selectedIndex];
+        document.getElementById('line').value=opt?.dataset?.line||'';
+      };
+      document.getElementById('problem_exists').onchange=e=>{ document.getElementById('problem-section').classList.toggle('hidden',e.target.value!=='ADA'); };
+      document.getElementById('monitoring-form').onsubmit=async(e)=>{
+        e.preventDefault();
+        let filterReplaced=document.getElementById('filter_replaced').checked;
+        let finalOp=parseInt(document.getElementById('cumulative_op_time').value)||0;
+        if(filterReplaced) finalOp=0;
+        let photoUrl='';
+        let file=document.getElementById('photo_upload').files[0];
+        if(file && document.getElementById('problem_exists').value==='ADA'){
+          let fname=`ijp-photos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g,'_')}`;
+          let {error}=await supabase.storage.from('ijp_monitoring').upload(fname,file);
+          if(!error) photoUrl=supabase.storage.from('ijp_monitoring').getPublicUrl(fname).data.publicUrl;
         }
-      })
+        let data={line:document.getElementById('line').value.toUpperCase(),serial_number:document.getElementById('serial_dropdown').value,machine:document.getElementById('machine').value,monitoring_date:document.getElementById('monitoring_date').value,cumulative_op_time:finalOp,ijp_condition:document.getElementById('ijp_condition').value,problem_exists:document.getElementById('problem_exists').value,problem_description:document.getElementById('problem_description').value,problem_action:document.getElementById('problem_action').value,notes:document.getElementById('notes').value,photo_url:photoUrl,filter_replaced:filterReplaced};
+        await supabase.from('monitoring_data').insert([data]);
+        await logAudit('MONITORING ADDED',`SERIAL:${data.serial_number}`);
+        document.getElementById('form-success').classList.remove('hidden'); setTimeout(()=>document.getElementById('form-success').classList.add('hidden'),2000);
+        loadAll();
+      };
+      document.getElementById('management-form').onsubmit=async(e)=>{
+        e.preventDefault(); if(!isAuth) return;
+        let data={machine_name:document.getElementById('machine_name').value.toUpperCase(),line:document.getElementById('line_mg').value.toUpperCase(),serial_number:document.getElementById('service').value.toUpperCase()};
+        await supabase.from('management_data').insert([data]);
+        await logAudit('IJP REGISTERED',data.machine_name);
+        document.getElementById('management-success').classList.remove('hidden'); setTimeout(()=>document.getElementById('management-success').classList.add('hidden'),2000);
+        loadAll();
+      };
+      document.getElementById('edit-serial-btn').onclick=()=>{ showPage('management'); document.querySelector('[data-nav="management"]').classList.add('bg-emerald-100'); };
     }
-
-    // ================== NAVIGATION ==================
-    
-    function setupNavigation() {
-      document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const page = btn.dataset.nav
-          if ((page === 'management' || page === 'audit') && !isAuthenticated) {
-            document.getElementById('login-modal').classList.remove('hidden')
-            return
-          }
-          showPage(page)
-          updateNavButtons(btn)
-        })
-      })
-    }
-
-    function showPage(page) {
-      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'))
-      document.getElementById(`page-${page}`).classList.remove('hidden')
-    }
-
-    function updateNavButtons(activeBtn) {
-      document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('bg-emerald-100', 'dark:bg-emerald-900/30', 'text-emerald-700', 'dark:text-emerald-400')
-        btn.classList.add('text-gray-600', 'dark:text-gray-400')
-      })
-      activeBtn.classList.add('bg-emerald-100', 'dark:bg-emerald-900/30', 'text-emerald-700', 'dark:text-emerald-400')
-      activeBtn.classList.remove('text-gray-600', 'dark:text-gray-400')
-    }
-
-    // ================== AUTO LOCK ==================
-    
-    function setupAutoLock() {
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden && isAuthenticated) forceLogout('TAB SWITCH')
-      })
-      window.addEventListener('blur', () => {
-        if (isAuthenticated) {
-          setTimeout(() => {
-            if (!document.hasFocus() && isAuthenticated) forceLogout('WINDOW BLUR')
-          }, 500)
-        }
-      })
-    }
-
-    function forceLogout(reason = 'SECURITY') {
-      if (isAuthenticated) {
-        isAuthenticated = false
-        sessionStorage.removeItem('ijp_auth')
-        updateAuthUI()
-        
-        // RESET FILTERS
-        currentLineFilter = 'ALL'
-        currentStatusFilter = 'ALL'
-        const lineFilter = document.getElementById('line-filter')
-        if (lineFilter) lineFilter.value = 'ALL'
-        const statusFilter = document.getElementById('status-filter')
-        if (statusFilter) statusFilter.value = 'ALL'
-        
-        showPage('dashboard')
-        const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
-        updateNavButtons(dashboardBtn)
-        
-        const notif = document.getElementById('security-notif')
-        notif.classList.remove('hidden')
-        const notifText = notif.querySelector('p')
-        notifText.innerHTML = reason === 'TAB SWITCH' ? '⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED DUE TO TAB SWITCH' : '⚡ AUTO-LOCK ACTIVATED - SESSION TERMINATED FOR SECURITY'
-        setTimeout(() => notif.classList.add('hidden'), 5000)
-        logAudit('AUTO-LOCK TRIGGERED', `Session terminated: ${reason}`)
-      }
-    }
-
-    // ================== LOGIN ==================
-    
-    function setupLogin() {
-      const loginModal = document.getElementById('login-modal')
-      const loginBtn = document.getElementById('login-submit')
-      const passwordInput = document.getElementById('login-password')
-      const loginError = document.getElementById('login-error')
-      const logoutBtn = document.getElementById('logout-btn')
-      
-      const savedAuth = sessionStorage.getItem('ijp_auth')
-      if (savedAuth === 'true') {
-        isAuthenticated = true
-        updateAuthUI()
-      }
-
-      document.querySelector('[data-nav="management"]').addEventListener('click', (e) => {
-        e.preventDefault()
-        if (!isAuthenticated) loginModal.classList.remove('hidden')
-        else { showPage('management'); updateNavButtons(e.currentTarget) }
-      })
-
-      document.querySelector('[data-nav="audit"]').addEventListener('click', (e) => {
-        e.preventDefault()
-        if (!isAuthenticated) loginModal.classList.remove('hidden')
-        else { showPage('audit'); updateNavButtons(e.currentTarget) }
-      })
-
-      loginBtn.addEventListener('click', () => {
-        if (passwordInput.value === MANAGEMENT_PASSWORD) {
-          isAuthenticated = true
-          sessionStorage.setItem('ijp_auth', 'true')
-          loginModal.classList.add('hidden')
-          passwordInput.value = ''
-          loginError.classList.add('hidden')
-          updateAuthUI()
-          document.getElementById('security-notif').classList.add('hidden')
-          const activeNav = document.querySelector('.nav-btn.bg-emerald-100')
-          if (activeNav) showPage(activeNav.dataset.nav)
-        } else {
-          loginError.classList.remove('hidden')
-          passwordInput.value = ''
-        }
-      })
-
-      passwordInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') loginBtn.click()
-      })
-
-      logoutBtn.addEventListener('click', () => {
-        isAuthenticated = false
-        sessionStorage.removeItem('ijp_auth')
-        updateAuthUI()
-        showPage('dashboard')
-        
-        // RESET FILTERS
-        currentLineFilter = 'ALL'
-        currentStatusFilter = 'ALL'
-        const lineFilter = document.getElementById('line-filter')
-        if (lineFilter) lineFilter.value = 'ALL'
-        const statusFilter = document.getElementById('status-filter')
-        if (statusFilter) statusFilter.value = 'ALL'
-        
-        const dashboardBtn = document.querySelector('[data-nav="dashboard"]')
-        updateNavButtons(dashboardBtn)
-        logAudit('MANUAL LOGOUT', 'User logged out manually')
-      })
-
-      loginModal.addEventListener('click', (e) => {
-        if (e.target === loginModal) {
-          loginModal.classList.add('hidden')
-          passwordInput.value = ''
-          loginError.classList.add('hidden')
-        }
-      })
-    }
-
-    // ================== LOAD DATA ==================
-    
-    async function loadAllData() {
-      if (!supabase) {
-        showConnectionStatus('disconnected', 'Supabase not initialized')
-        return
-      }
-      
-      try {
-        // Cek koneksi
-        const { error: testError } = await supabase.from('monitoring_data').select('count', { count: 'exact', head: true })
-        if (testError) throw testError
-
-        // Load monitoring data
-        const { data: monitoringData, error: monitoringError } = await supabase
-          .from('monitoring_data').select('*').order('monitoring_date', { ascending: false })
-        if (monitoringError) throw monitoringError
-
-        // Load management data
-        const { data: mgData, error: managementError } = await supabase
-          .from('management_data').select('*').order('created_at', { ascending: false })
-        if (managementError) throw managementError
-        managementData = mgData || []
-
-        // Load audit data
-        const { data: auditData, error: auditError } = await supabase
-          .from('audit_logs').select('*').order('created_at', { ascending: false })
-        if (auditError) throw auditError
-
-        allData = [
-          ...monitoringData.map(d => ({ ...d, table_type: 'monitoring' })),
-          ...mgData.map(d => ({ ...d, table_type: 'management' })),
-          ...auditData.map(d => ({ ...d, table_type: 'audit' }))
-        ]
-
-        // Update UI
-        updateFormDropdowns()
-        updateDashboard()
-        updateLineFilterDropdown()
-        updateMonitoringTable()
-        
-        if (isAuthenticated) {
-          updateManagementTable()
-          updateAuditTable()
-        }
-        
-        updateCriticalAlerts()
-        populateWeekSelector()
-        
-        // Reset connection retries on success
-        connectionRetries = 0
-        
-      } catch (error) {
-        console.error('Error loading data:', error)
-        
-        if (connectionRetries < MAX_RETRIES) {
-          connectionRetries++
-          const delay = Math.pow(2, connectionRetries) * 1000
-          showConnectionStatus('disconnected', `Mencoba lagi dalam ${delay/1000} detik... (${connectionRetries}/${MAX_RETRIES})`)
-          setTimeout(loadAllData, delay)
-        } else {
-          showConnectionStatus('disconnected', 'Tidak dapat terhubung ke database. Periksa koneksi internet Anda.')
-        }
-      }
-    }
-
-    // ================== SUBSCRIBE ==================
-    
-    function subscribeToChanges() {
-      if (!supabase) return
-      
-      try {
-        supabase.channel('monitoring_changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'monitoring_data' }, () => {
-            clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
-          }).subscribe()
-          
-        supabase.channel('management_changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'management_data' }, () => {
-            clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
-          }).subscribe()
-          
-        supabase.channel('audit_changes')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, () => {
-            clearTimeout(loadTimeout); loadTimeout = setTimeout(() => loadAllData(), 500)
-          }).subscribe()
-          
-      } catch (error) {
-        console.error('Subscribe error:', error)
-      }
-    }
-
-    // ================== FILTER FUNCTIONS ==================
-    
-    function updateLineFilterDropdown() {
-      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-      const lines = [...new Set(monitoringData.map(d => d.line).filter(line => line && line.trim()))].sort()
-      const filterSelect = document.getElementById('line-filter')
-      const currentValue = filterSelect.value
-      filterSelect.innerHTML = '<option value="ALL">SEMUA LINE</option>'
-      lines.forEach(line => {
-        const option = document.createElement('option')
-        option.value = line
-        option.textContent = line
-        filterSelect.appendChild(option)
-      })
-      if (lines.includes(currentValue)) {
-        filterSelect.value = currentValue
-      } else {
-        filterSelect.value = 'ALL'
-        currentLineFilter = 'ALL'
-      }
-    }
-
-    function updateMonitoringTable() {
-      const tbody = document.getElementById('monitoring-table')
-      let data = allData.filter(d => d.table_type === 'monitoring')
-      
-      if (currentLineFilter !== 'ALL') {
-        data = data.filter(d => d.line === currentLineFilter)
-      }
-      
-      if (currentStatusFilter !== 'ALL') {
-        data = data.filter(d => {
-          const status = getStatusFromOpTime(d.cumulative_op_time || 0)
-          return status === currentStatusFilter
-        })
-      }
-      
-      const filteredCount = document.getElementById('filtered-count')
-      if (filteredCount) {
-        const totalData = allData.filter(d => d.table_type === 'monitoring').length
-        filteredCount.textContent = `${data.length}/${totalData}`
-      }
-      
-      if (data.length === 0) {
-        let message = 'NO MONITORING DATA AVAILABLE'
-        if (currentLineFilter !== 'ALL' && currentStatusFilter !== 'ALL') {
-          message = `TIDAK ADA DATA UNTUK LINE ${currentLineFilter} DENGAN STATUS ${currentStatusFilter}`
-        } else if (currentLineFilter !== 'ALL') {
-          message = `TIDAK ADA DATA UNTUK LINE ${currentLineFilter}`
-        } else if (currentStatusFilter !== 'ALL') {
-          message = `TIDAK ADA DATA DENGAN STATUS ${currentStatusFilter}`
-        }
-        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">${message}</td></tr>`
-        return
-      }
-
-      tbody.innerHTML = data.slice(0, 20).map(item => {
-        const opTime = item.cumulative_op_time || 0
-        const status = getStatusFromOpTime(opTime)
-        let statusText, statusClass, statusAnimation, bgClass
-        
-        if (status === 'CRITICAL') {
-          statusText = 'CRITICAL - SERVICE REQUIRED'
-          statusClass = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-          statusAnimation = 'blink-critical'
-          bgClass = 'bg-red-50 dark:bg-red-900/10'
-        } else if (status === 'WARNING') {
-          statusText = 'WARNING'
-          statusClass = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-          statusAnimation = 'blink-warning'
-          bgClass = 'hover:bg-amber-50 dark:hover:bg-amber-900/20'
-        } else {
-          statusText = 'NORMAL'
-          statusClass = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-          statusAnimation = ''
-          bgClass = 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-        }
-
-        const conditionClass = item.ijp_condition === 'OK' 
-          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-
-        const problemClass = item.problem_exists === 'ADA'
-          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-          : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        
-        return `
-          <tr class="${bgClass} transition-colors">
-            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
-            <td class="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">${item.serial_number || '-'}</td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.machine || '-'}</td>
-            <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${problemClass}">${item.problem_exists || '-'}</span></td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${statusClass} ${statusAnimation}">${statusText}</span></td>
-          </tr>
-        `
-      }).join('')
-    }
-
-    // ================== FORM FUNCTIONS ==================
-    
-    function updateFormDropdowns() {
-      const machineDropdown = document.getElementById('machine_dropdown')
-      const uniqueMachines = [...new Set(managementData.map(d => d.machine_name))].sort()
-      machineDropdown.innerHTML = '<option value="">-- SELECT MACHINE --</option>'
-      uniqueMachines.forEach(machine => {
-        const option = document.createElement('option')
-        option.value = machine
-        option.textContent = machine
-        machineDropdown.appendChild(option)
-      })
-    }
-
-    // ================== SETUP FUNCTIONS ==================
-    
-    function setupForms() {
-      const problemExistsSelect = document.getElementById('problem_exists')
-      const problemSection = document.getElementById('problem-section')
-
-      document.getElementById('photo_upload').addEventListener('change', (e) => {
-        const file = e.target.files[0]
-        const preview = document.getElementById('photo-preview')
-        const filename = document.getElementById('photo-filename')
-        if (file) {
-          if (file.size > 5 * 1024 * 1024) {
-            filename.textContent = 'ERROR: FILE SIZE EXCEEDS 5MB'
-            return
-          }
-          const reader = new FileReader()
-          reader.onload = (event) => {
-            document.getElementById('preview-img').src = event.target.result
-            preview.classList.remove('hidden')
-            filename.textContent = `FILE: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`
-          }
-          reader.readAsDataURL(file)
-        } else {
-          preview.classList.add('hidden')
-          filename.textContent = 'NO FILE SELECTED'
-        }
-      })
-
-      problemExistsSelect.addEventListener('change', () => {
-        if (problemExistsSelect.value === 'ADA') {
-          problemSection.classList.remove('hidden')
-        } else {
-          problemSection.classList.add('hidden')
-          document.getElementById('problem_description').value = ''
-          document.getElementById('problem_action').value = ''
-          document.getElementById('photo_upload').value = ''
-          document.getElementById('photo-preview').classList.add('hidden')
-          document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
-        }
-      })
-
-      document.getElementById('monitoring-form').addEventListener('submit', async (e) => {
-        e.preventDefault()
-        if (!supabase) {
-          showFormMessage('form-success', 'ERROR: Database tidak terhubung', true)
-          return
-        }
-        
-        const btn = document.getElementById('submit-monitoring')
-        btn.disabled = true
-        btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> SUBMITTING...'
-
-        try {
-          let photoUrl = ''
-          const photoFile = document.getElementById('photo_upload').files[0]
-          const filterReplaced = document.getElementById('filter_replaced').checked
-          let finalOpTime = parseInt(document.getElementById('cumulative_op_time').value) || 0
-
-          if (photoFile && document.getElementById('problem_exists').value === 'ADA') {
-            const timestamp = Date.now()
-            const safeName = photoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(-50)
-            const filename = `ijp-photos/${timestamp}-${safeName}`
-            const { error: uploadError } = await supabase.storage.from('ijp_monitoring').upload(filename, photoFile)
-            if (!uploadError) {
-              const { data } = supabase.storage.from('ijp_monitoring').getPublicUrl(filename)
-              photoUrl = data.publicUrl
-            }
-          }
-
-          if (filterReplaced) finalOpTime = 0
-
-          const formData = {
-            line: document.getElementById('line').value.toUpperCase(),
-            serial_number: document.getElementById('serial_dropdown').value.toUpperCase(),
-            machine: document.getElementById('machine').value.toUpperCase(),
-            monitoring_date: document.getElementById('monitoring_date').value,
-            cumulative_op_time: finalOpTime,
-            weekly_increment: 0,
-            ijp_condition: document.getElementById('ijp_condition').value.toUpperCase(),
-            problem_exists: document.getElementById('problem_exists').value.toUpperCase(),
-            problem_description: document.getElementById('problem_description').value || '',
-            problem_action: document.getElementById('problem_action').value || '',
-            notes: document.getElementById('notes').value,
-            photo_url: photoUrl,
-            filter_replaced: filterReplaced
-          }
-
-          const { error } = await supabase.from('monitoring_data').insert([formData])
-          if (error) throw error
-
-          showFormMessage('form-success', '✓ DATA SUBMITTED SUCCESSFULLY!')
-          document.getElementById('monitoring-form').reset()
-          problemSection.classList.add('hidden')
-          document.getElementById('photo-preview').classList.add('hidden')
-          document.getElementById('photo-filename').textContent = 'NO FILE SELECTED'
-          document.getElementById('monitoring_date').value = new Date().toISOString().split('T')[0]
-
-          const filterMsg = filterReplaced ? ' - FILTER SET REPLACED, OP TIME RESET TO 0' : ''
-          await logAudit('MONITORING DATA ADDED', `SERIAL: ${formData.serial_number}, OP TIME: ${finalOpTime} HRS${filterMsg}`)
-        } catch (error) {
-          console.error('Error:', error)
-          showFormMessage('form-success', `ERROR: ${error.message}`, true)
-        } finally {
-          btn.disabled = false
-          btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> SUBMIT DATA'
-        }
-      })
-
-      document.getElementById('management-form').addEventListener('submit', async (e) => {
-        e.preventDefault()
-        if (!isAuthenticated) {
-          document.getElementById('login-modal').classList.remove('hidden')
-          return
-        }
-
-        if (!supabase) {
-          showFormMessage('management-success', 'ERROR: Database tidak terhubung', true)
-          return
-        }
-
-        const btn = document.getElementById('submit-management')
-        btn.disabled = true
-        btn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> UPLOADING...'
-
-        const formData = {
-          machine_name: document.getElementById('machine_name').value.toUpperCase(),
-          line: document.getElementById('line_mg').value.toUpperCase(),
-          serial_number: document.getElementById('service').value.toUpperCase()
-        }
-
-        try {
-          const { error } = await supabase.from('management_data').insert([formData])
-          if (error) throw error
-          document.getElementById('management-form').reset()
-          showFormMessage('management-success', '✓ DATA UPLOADED SUCCESSFULLY!')
-          await logAudit('IJP REGISTERED', `MACHINE: ${formData.machine_name}`)
-        } catch (error) {
-          console.error('Error:', error)
-          showFormMessage('management-success', `ERROR: ${error.message}`, true)
-        } finally {
-          btn.disabled = false
-          btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg> UPLOAD DATA'
-        }
-      })
-
-      document.getElementById('machine_dropdown').addEventListener('change', function() {
-        const selectedMachine = this.value
-        const serialDropdown = document.getElementById('serial_dropdown')
-        const editBtn = document.getElementById('edit-serial-btn')
-        if (selectedMachine) {
-          const machineRecords = managementData.filter(d => d.machine_name === selectedMachine)
-          serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
-          machineRecords.forEach(record => {
-            const option = document.createElement('option')
-            option.value = record.serial_number
-            option.dataset.line = record.line
-            option.dataset.id = record.id
-            option.textContent = record.serial_number
-            serialDropdown.appendChild(option)
-          })
-          document.getElementById('machine').value = selectedMachine
-          editBtn.classList.remove('hidden')
-          document.getElementById('line').value = ''
-          serialDropdown.value = ''
-        } else {
-          serialDropdown.innerHTML = '<option value="">-- SELECT SERIAL NUMBER --</option>'
-          document.getElementById('line').value = ''
-          document.getElementById('machine').value = ''
-          editBtn.classList.add('hidden')
-        }
-      })
-
-      document.getElementById('serial_dropdown').addEventListener('change', function() {
-        if (this.value) {
-          const selectedOption = this.options[this.selectedIndex]
-          document.getElementById('line').value = selectedOption.dataset.line || ''
-        } else {
-          document.getElementById('line').value = ''
-        }
-      })
-    }
-
-    function showFormMessage(elementId, message, isError = false) {
-      const el = document.getElementById(elementId)
-      el.innerHTML = `<p class="${isError ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'} font-semibold uppercase">${message}</p>`
-      el.classList.remove('hidden')
-      setTimeout(() => el.classList.add('hidden'), 3000)
-    }
-
-    // ================== DELETE MODAL ==================
-    
-    function setupDeleteModal() {
-      document.getElementById('cancel-delete').addEventListener('click', () => {
-        document.getElementById('delete-modal').classList.add('hidden')
-        deleteTarget = null
-      })
-
-      document.getElementById('confirm-delete').addEventListener('click', async () => {
-        if (deleteTarget) {
-          if (!isAuthenticated) {
-            document.getElementById('login-modal').classList.remove('hidden')
-            document.getElementById('delete-modal').classList.add('hidden')
-            return
-          }
-
-          if (!supabase) {
-            showFormMessage('form-success', 'ERROR: Database tidak terhubung', true)
-            return
-          }
-
-          const btn = document.getElementById('confirm-delete')
-          btn.disabled = true
-          btn.textContent = 'DELETING...'
-
-          try {
-            const { error } = await supabase.from('management_data').delete().eq('id', deleteTarget.id)
-            if (error) throw error
-            await logAudit('RECORD DELETED', `ID: ${deleteTarget.id}`)
-          } catch (error) {
-            console.error('Error:', error)
-            showFormMessage('form-success', `ERROR: ${error.message}`, true)
-          } finally {
-            btn.disabled = false
-            btn.textContent = 'DELETE'
-            document.getElementById('delete-modal').classList.add('hidden')
-            deleteTarget = null
-          }
-        }
-      })
-    }
-
-    window.showDeleteModal = (record) => {
-      if (!isAuthenticated) {
-        document.getElementById('login-modal').classList.remove('hidden')
-        return
-      }
-      deleteTarget = record
-      document.getElementById('delete-modal').classList.remove('hidden')
-    }
-
-    window.goToManagement = () => {
-      if (!isAuthenticated) {
-        document.getElementById('login-modal').classList.remove('hidden')
-        return
-      }
-      showPage('management')
-      const managementBtn = document.querySelector('[data-nav="management"]')
-      updateNavButtons(managementBtn)
-    }
-
-    window.saveSerialNumber = async (id, btn) => {
-      if (!isAuthenticated) {
-        document.getElementById('login-modal').classList.remove('hidden')
-        return
-      }
-
-      if (!supabase) {
-        showFormMessage('form-success', 'ERROR: Database tidak terhubung', true)
-        return
-      }
-
-      const input = document.querySelector(`input[data-id="${id}"]`)
-      const newSerial = input.value.toUpperCase()
-      const originalSerial = input.dataset.original
-
-      if (!newSerial.trim()) {
-        showFormMessage('form-success', 'ERROR: SERIAL NUMBER TIDAK BOLEH KOSONG', true)
-        input.value = originalSerial
-        return
-      }
-
-      if (newSerial === originalSerial) return
-
-      btn.disabled = true
-      btn.textContent = '...'
-
-      try {
-        const { error } = await supabase.from('management_data').update({ serial_number: newSerial }).eq('id', id)
-        if (error) throw error
-        input.dataset.original = newSerial
-        await logAudit('SERIAL NUMBER UPDATED', `ID: ${id}, NEW SERIAL: ${newSerial}`)
-        showFormMessage('form-success', '✓ SERIAL NUMBER UPDATED!')
-      } catch (error) {
-        console.error('Error:', error)
-        input.value = originalSerial
-        showFormMessage('form-success', `ERROR: ${error.message}`, true)
-      } finally {
-        btn.disabled = false
-        btn.textContent = '✓'
-      }
-    }
-
-    // ================== EXPORT FUNCTIONS ==================
-    
-    function setupExportButtons() {
-      document.getElementById('export-monitoring').addEventListener('click', exportMonitoringData)
-      document.getElementById('export-management').addEventListener('click', exportManagementData)
-      document.getElementById('export-audit').addEventListener('click', exportAuditData)
-    }
-
-    function exportMonitoringData() {
-      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-      if (monitoringData.length === 0) {
-        showFormMessage('form-success', 'NO MONITORING DATA TO EXPORT', true)
-        return
-      }
-      const wsData = monitoringData.map(item => ({
-        'DATE': item.monitoring_date || '-',
-        'LINE': item.line || '-',
-        'SERIAL NUMBER': item.serial_number || '-',
-        'MACHINE': item.machine || '-',
-        'CUMULATIVE OP TIME (HOURS)': item.cumulative_op_time || 0,
-        'FILTER REPLACED': item.filter_replaced ? 'YES' : 'NO',
-        'KONDISI IJP': item.ijp_condition || '-',
-        'PROBLEM': item.problem_exists || '-',
-        'DESKRIPSI': item.problem_description || '-',
-        'ACTION': item.problem_action || '-',
-        'NOTES': item.notes || '-',
-        'PHOTO': item.photo_url ? 'YES' : 'NO'
-      }))
-      const ws = XLSX.utils.json_to_sheet(wsData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Monitoring Data')
-      XLSX.writeFile(wb, `monitoring-data-${new Date().toISOString().split('T')[0]}.xlsx`)
-    }
-
-    function exportManagementData() {
-      if (!isAuthenticated) {
-        document.getElementById('login-modal').classList.remove('hidden')
-        return
-      }
-      const mgData = allData.filter(d => d.table_type === 'management')
-      if (mgData.length === 0) {
-        showFormMessage('form-success', 'NO MANAGEMENT DATA TO EXPORT', true)
-        return
-      }
-      const wsData = mgData.map(item => ({
-        'NAMA MESIN': item.machine_name || '-',
-        'LINE': item.line || '-',
-        'SERIAL NUMBER IJP': item.serial_number || '-',
-        'TIMESTAMP': new Date(item.created_at).toLocaleString()
-      }))
-      const ws = XLSX.utils.json_to_sheet(wsData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Management Data')
-      XLSX.writeFile(wb, `management-data-${new Date().toISOString().split('T')[0]}.xlsx`)
-    }
-
-    function exportAuditData() {
-      if (!isAuthenticated) {
-        document.getElementById('login-modal').classList.remove('hidden')
-        return
-      }
-      const auditData = allData.filter(d => d.table_type === 'audit')
-      if (auditData.length === 0) {
-        showFormMessage('form-success', 'NO AUDIT DATA TO EXPORT', true)
-        return
-      }
-      const wsData = auditData.map(item => ({
-        'TIMESTAMP': new Date(item.created_at).toLocaleString(),
-        'ACTION': item.user_action || '-',
-        'DETAILS': item.activity || '-'
-      }))
-      const ws = XLSX.utils.json_to_sheet(wsData)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Audit Trail')
-      XLSX.writeFile(wb, `audit-trail-${new Date().toISOString().split('T')[0]}.xlsx`)
-    }
-
-    // ================== LOG AUDIT ==================
-    
-    async function logAudit(action, details) {
-      if (!supabase) return
-      try {
-        await supabase.from('audit_logs').insert([{ user_action: action, activity: details }])
-      } catch (error) {
-        console.error('Error logging audit:', error)
-      }
-    }
-
-    // ================== DASHBOARD FUNCTIONS ==================
-    
-    function updateDashboard() {
-      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-      const mgData = allData.filter(d => d.table_type === 'management')
-      const problemsCount = monitoringData.filter(d => d.problem_exists === 'ADA').length
-      const normalCount = monitoringData.filter(d => d.problem_exists === 'TIDAK ADA').length
-      const total = problemsCount + normalCount
-      
-      // Update stats cards
-      document.getElementById('stat-total').textContent = mgData.length
-      document.getElementById('stat-active').textContent = monitoringData.length
-      document.getElementById('stat-problems').textContent = problemsCount
-      const lines = new Set(monitoringData.map(d => d.line))
-      document.getElementById('stat-lines').textContent = lines.size
-
-      // Update problem summary stats dengan persentase
-      const problemPercent = total > 0 ? ((problemsCount / total) * 100).toFixed(1) : 0
-      const normalPercent = total > 0 ? ((normalCount / total) * 100).toFixed(1) : 0
-      
-      // Update elemen-elemen persentase
-      const problemPercentEl = document.getElementById('problem-percent')
-      const normalPercentEl = document.getElementById('normal-percent')
-      const problemCountEl = document.getElementById('problem-count')
-      const normalCountEl = document.getElementById('normal-count')
-      const problemProgressBar = document.getElementById('problem-progress-bar')
-      const problemRatioEl = document.getElementById('problem-ratio')
-      
-      if (problemPercentEl) problemPercentEl.textContent = `${problemPercent}%`
-      if (normalPercentEl) normalPercentEl.textContent = `${normalPercent}%`
-      if (problemCountEl) problemCountEl.textContent = `${problemsCount} UNIT`
-      if (normalCountEl) normalCountEl.textContent = `${normalCount} UNIT`
-      
-      // Update progress bar
-      if (problemProgressBar) {
-        const problemWidth = total > 0 ? (problemsCount / total) * 100 : 0
-        problemProgressBar.style.width = `${problemWidth}%`
-        
-        // Ubah warna gradient berdasarkan persentase
-        if (problemWidth > 70) {
-          problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #f97316 70%, #10b981 100%)'
-        } else if (problemWidth > 40) {
-          problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #fbbf24 50%, #10b981 100%)'
-        } else {
-          problemProgressBar.style.background = 'linear-gradient(90deg, #ef4444 0%, #34d399 100%)'
-        }
-      }
-      
-      // Update teks ratio
-      if (problemRatioEl) {
-        problemRatioEl.innerHTML = `⚖️ PROBLEM RATIO: <span class="text-red-500 font-bold">${problemPercent}%</span> : <span class="text-emerald-500 font-bold">${normalPercent}%</span> (NORMAL)`
-      }
-
-      updateMonitoringChart(monitoringData)
-      updateProblemChart(monitoringData)
-    }
-
-    function updateMonitoringChart(monitoringData) {
-      const canvas = document.getElementById('monitoring-chart')
-      if (!canvas) return
-      const chartData = monitoringData.map(d => ({
-        machine: d.machine || 'UNKNOWN',
-        opTime: d.cumulative_op_time || 0
-      })).sort((a, b) => a.opTime - b.opTime)
-      const labels = chartData.map(d => d.machine)
-      const values = chartData.map(d => d.opTime)
-      const ctx = canvas.getContext('2d')
-      if (chartInstance) chartInstance.destroy()
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'CUMULATIVE OP TIME (HOURS)',
-            data: values,
-            backgroundColor: values.map(v => {
-              if (v >= 15000) return '#ef4444'
-              if (v >= 10000) return '#ef4444'
-              if (v >= 5000) return '#f59e0b'
-              return '#10b981'
-            }),
-            borderColor: values.map(v => {
-              if (v >= 15000) return '#dc2626'
-              if (v >= 10000) return '#dc2626'
-              if (v >= 5000) return '#d97706'
-              return '#059669'
-            }),
-            borderWidth: 2,
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: {
-                font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
-                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-                padding: 15
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: Math.max(17000, Math.max(...values, 0) * 1.1),
-              ticks: {
-                font: { family: "'Rajdhani', sans-serif", size: 11 },
-                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-              },
-              grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
-            },
-            x: {
-              ticks: {
-                font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
-                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-              },
-              grid: { display: false }
-            }
-          }
-        }
-      })
-    }
-
-    function updateProblemChart(monitoringData) {
-      const canvas = document.getElementById('problem-chart')
-      if (!canvas) return
-      
-      const problemCount = monitoringData.filter(d => d.problem_exists === 'ADA').length
-      const normalCount = monitoringData.filter(d => d.problem_exists === 'TIDAK ADA').length
-      const total = problemCount + normalCount
-      
-      // Hitung persentase
-      const problemPercent = total > 0 ? ((problemCount / total) * 100).toFixed(1) : 0
-      const normalPercent = total > 0 ? ((normalCount / total) * 100).toFixed(1) : 0
-      
-      const ctx = canvas.getContext('2d')
-      if (problemChartInstance) problemChartInstance.destroy()
-      
-      problemChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: [
-            `PROBLEM FOUND  (${problemCount} | ${problemPercent}%)`, 
-            `NORMAL  (${normalCount} | ${normalPercent}%)`
-          ],
-          datasets: [{
-            data: [problemCount, normalCount],
-            backgroundColor: ['#ef4444', '#10b981'],
-            borderColor: ['#dc2626', '#059669'],
-            borderWidth: 3,
-            hoverOffset: 12,
-            borderRadius: 8,
-            spacing: 4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: '65%',
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                font: { 
-                  family: "'Rajdhani', sans-serif", 
-                  size: 12, 
-                  weight: 'bold' 
-                },
-                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-                padding: 15,
-                usePointStyle: true,
-                pointStyle: 'circle'
-              }
-            },
-            tooltip: {
-              backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff',
-              titleColor: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#111827',
-              bodyColor: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563',
-              borderColor: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb',
-              borderWidth: 1,
-              padding: 12,
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || ''
-                  const value = context.raw || 0
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0)
-                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0
-                  return [
-                    ` ${label}`,
-                    ` 📊 Value: ${value} unit`,
-                    ` 📈 Percentage: ${percentage}%`
-                  ]
-                }
-              }
-            }
-          }
-        }
-      })
-    }
-
-    function updateCriticalAlerts() {
-      const container = document.getElementById('critical-alerts')
-      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-      const criticalItems = monitoringData.filter(d => d.cumulative_op_time >= 15000)
-      const warningItems = monitoringData.filter(d => d.cumulative_op_time >= 10000 && d.cumulative_op_time < 15000)
-      let html = ''
-      if (criticalItems.length > 0) {
-        html += criticalItems.map(item => `
-          <div class="bg-red-50 dark:bg-red-900/20 border-2 border-red-500 dark:border-red-600 rounded-xl p-4 mb-4 shadow-lg">
-            <div class="flex items-start gap-3">
-              <div class="text-3xl critical-pulse">🚨</div>
-              <div class="flex-1">
-                <h3 class="font-orbitron font-bold text-red-700 dark:text-red-400 uppercase mb-1">CRITICAL - IMMEDIATE SERVICE REQUIRED</h3>
-                <p class="text-red-600 dark:text-red-300 font-semibold uppercase mb-2">FILTER SET REPLACEMENT MANDATORY (≥15000 HRS)</p>
-                <p class="text-sm text-red-600 dark:text-red-300 uppercase"><strong>LINE:</strong> ${item.line || '-'} | <strong>SERIAL:</strong> ${item.serial_number || '-'} | <strong>OP TIME:</strong> ${item.cumulative_op_time} HRS</p>
-              </div>
-            </div>
-          </div>
-        `).join('')
-      }
-      if (warningItems.length > 0) {
-        html += warningItems.map(item => `
-          <div class="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-500 dark:border-amber-600 rounded-xl p-4 mb-4 shadow-lg">
-            <div class="flex items-start gap-3">
-              <div class="text-3xl blink-warning">⚠️</div>
-              <div class="flex-1">
-                <h3 class="font-orbitron font-bold text-amber-700 dark:text-amber-400 uppercase mb-1">WARNING - FILTER SET REPLACEMENT NEEDED SOON</h3>
-                <p class="text-amber-600 dark:text-amber-300 font-semibold uppercase mb-2">SCHEDULE FILTER REPLACEMENT WITHIN 1 WEEK</p>
-                <p class="text-sm text-amber-600 dark:text-amber-300 uppercase"><strong>LINE:</strong> ${item.line || '-'} | <strong>SERIAL:</strong> ${item.serial_number || '-'} | <strong>OP TIME:</strong> ${item.cumulative_op_time} HRS (10000-15000)</p>
-              </div>
-            </div>
-          </div>
-        `).join('')
-      }
-      container.innerHTML = html
-    }
-
-    function updateManagementTable() {
-      if (!isAuthenticated) return
-      const tbody = document.getElementById('management-table')
-      const data = allData.filter(d => d.table_type === 'management')
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO IJP DATA REGISTERED</td></tr>'
-        return
-      }
-      tbody.innerHTML = data.map(item => `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-          <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.machine_name || '-'}</td>
-          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.line || '-'}</td>
-          <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">
-            <div class="flex items-center gap-2">
-              <input type="text" value="${item.serial_number || ''}" class="serial-edit-input flex-1 px-3 py-1 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white uppercase font-semibold text-sm" data-id="${item.id}" data-original="${item.serial_number || ''}">
-              <button onclick="window.saveSerialNumber('${item.id}', this)" class="px-2 py-1 text-xs font-bold bg-green-500 text-white rounded uppercase hover:bg-green-600 transition-all">✓</button>
-            </div>
-          </td>
-          <td class="px-4 py-3">
-            <button onclick="window.showDeleteModal({id: '${item.id}'})" class="px-3 py-1 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg uppercase transition-all">DELETE</button>
-          </td>
-        </tr>
-      `).join('')
-    }
-
-    function updateAuditTable() {
-      if (!isAuthenticated) return
-      const tbody = document.getElementById('audit-table')
-      const data = allData.filter(d => d.table_type === 'audit').sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      document.getElementById('audit-count').textContent = `${data.length} RECORDS`
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO ACTIVITY RECORDED</td></tr>'
-        return
-      }
-      tbody.innerHTML = data.map(item => {
-        const date = new Date(item.created_at)
-        const formattedDate = date.toLocaleString('en-US', {
-          year: 'numeric', month: 'short', day: '2-digit',
-          hour: '2-digit', minute: '2-digit', second: '2-digit'
-        }).toUpperCase()
-        return `
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <td class="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">${formattedDate}</td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded uppercase">${item.user_action || '-'}</span></td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">${item.activity || '-'}</td>
-          </tr>
-        `
-      }).join('')
-    }
-
-    // ================== WEEKLY FUNCTIONS ==================
-    
-    function getWeekNumber(date) {
-      const d = new Date(date)
-      d.setHours(0, 0, 0, 0)
-      d.setDate(d.getDate() + 4 - (d.getDay() || 7))
-      const yearStart = new Date(d.getFullYear(), 0, 1)
-      const week = Math.ceil(((d - yearStart) / 86400000) + 1) / 7
-      return week
-    }
-
-    function populateWeekSelector() {
-      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-      const weeks = new Set()
-      monitoringData.forEach(d => {
-        if (d.monitoring_date) {
-          const week = getWeekNumber(new Date(d.monitoring_date))
-          const year = new Date(d.monitoring_date).getFullYear()
-          weeks.add(`${year}-W${String(week).padStart(2, '0')}`)
-        }
-      })
-      const sortedWeeks = Array.from(weeks).sort().reverse()
-      const selector = document.getElementById('week_selector')
-      selector.innerHTML = '<option value="">-- SELECT WEEK --</option>'
-      sortedWeeks.forEach(week => {
-        const option = document.createElement('option')
-        option.value = week
-        option.textContent = `WEEK ${week}`
-        selector.appendChild(option)
-      })
-      if (sortedWeeks.length > 0) {
-        selector.value = sortedWeeks[0]
-        updateWeeklyAnalysis(sortedWeeks[0])
-      }
-      selector.addEventListener('change', (e) => {
-        if (e.target.value) updateWeeklyAnalysis(e.target.value)
-      })
-    }
-
-    function updateWeeklyAnalysis(weekString) {
-      const monitoringData = allData.filter(d => d.table_type === 'monitoring')
-      const [year, week] = weekString.split('-W')
-      const weekNum = parseInt(week)
-      const weekData = monitoringData.filter(d => {
-        if (!d.monitoring_date) return false
-        const dataWeek = getWeekNumber(new Date(d.monitoring_date))
-        const dataYear = new Date(d.monitoring_date).getFullYear()
-        return dataYear === parseInt(year) && dataWeek === weekNum
-      })
-      const totalOpTime = weekData.reduce((sum, d) => sum + (d.cumulative_op_time || 0), 0)
-      const entries = weekData.length
-      const avgOpTime = entries > 0 ? Math.round(totalOpTime / entries) : 0
-      document.getElementById('weekly-total').textContent = totalOpTime
-      document.getElementById('weekly-entries').textContent = entries
-      document.getElementById('weekly-avg').textContent = avgOpTime
-      updateWeeklyTrendChart(weekData)
-      updateMachineComparisonChart(weekData)
-      updateWeeklyTable(weekData)
-    }
-
-    function updateWeeklyTrendChart(weekData) {
-      const canvas = document.getElementById('weekly-trend-chart')
-      if (!canvas) return
-      const sortedData = [...weekData].sort((a, b) => new Date(a.monitoring_date) - new Date(b.monitoring_date))
-      const labels = sortedData.map(d => new Date(d.monitoring_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }))
-      const values = sortedData.map(d => d.cumulative_op_time || 0)
-      const ctx = canvas.getContext('2d')
-      if (weeklyTrendChart) weeklyTrendChart.destroy()
-      weeklyTrendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'CUMULATIVE OP TIME (HOURS)',
-            data: values,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.4,
-            pointRadius: 6,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: {
-                font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
-                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-                padding: 15
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                font: { family: "'Rajdhani', sans-serif", size: 11 },
-                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-              },
-              grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
-            },
-            x: {
-              ticks: {
-                font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
-                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-              },
-              grid: { display: false }
-            }
-          }
-        }
-      })
-    }
-
-    function updateMachineComparisonChart(weekData) {
-      const canvas = document.getElementById('machine-comparison-chart')
-      if (!canvas) return
-      const machineData = {}
-      weekData.forEach(d => {
-        const machine = d.machine || 'UNKNOWN'
-        if (!machineData[machine]) machineData[machine] = 0
-        machineData[machine] += d.cumulative_op_time || 0
-      })
-      const labels = Object.keys(machineData).sort()
-      const values = labels.map(m => machineData[m])
-      const ctx = canvas.getContext('2d')
-      if (machineComparisonChart) machineComparisonChart.destroy()
-      machineComparisonChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'TOTAL OP TIME (HOURS)',
-            data: values,
-            backgroundColor: values.map(v => {
-              if (v > 10000) return '#ef4444'
-              if (v > 5000) return '#f59e0b'
-              return '#06b6d4'
-            }),
-            borderColor: values.map(v => {
-              if (v > 10000) return '#dc2626'
-              if (v > 5000) return '#d97706'
-              return '#0891b2'
-            }),
-            borderWidth: 2,
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              labels: {
-                font: { family: "'Rajdhani', sans-serif", size: 12, weight: 'bold' },
-                color: document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151',
-                padding: 15
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                font: { family: "'Rajdhani', sans-serif", size: 11 },
-                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-              },
-              grid: { color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' }
-            },
-            x: {
-              ticks: {
-                font: { family: "'Rajdhani', sans-serif", size: 11, weight: 'bold' },
-                color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280'
-              },
-              grid: { display: false }
-            }
-          }
-        }
-      })
-    }
-
-    function updateWeeklyTable(weekData) {
-      const tbody = document.getElementById('weekly-table')
-      if (weekData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400 uppercase">NO DATA FOR THIS WEEK</td></tr>'
-        return
-      }
-      const sortedData = [...weekData].sort((a, b) => new Date(a.monitoring_date) - new Date(b.monitoring_date))
-      tbody.innerHTML = sortedData.map((item, idx) => {
-        const date = new Date(item.monitoring_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-        const opTime = item.cumulative_op_time || 0
-        let increment = 0
-        if (idx > 0 && sortedData[idx - 1].serial_number === item.serial_number) {
-          increment = Math.max(0, opTime - (sortedData[idx - 1].cumulative_op_time || 0))
-        }
-        const conditionClass = item.ijp_condition === 'OK' 
-          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-        return `
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200">${date}</td>
-            <td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-200 uppercase">${item.line || '-'}</td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">${item.serial_number || '-'}</td>
-            <td class="px-4 py-3 text-sm font-orbitron font-bold text-gray-800 dark:text-white">${opTime} HRS</td>
-            <td class="px-4 py-3 text-sm font-orbitron font-bold text-cyan-600 dark:text-cyan-400">${increment} HRS</td>
-            <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-bold rounded-full uppercase ${conditionClass}">${item.ijp_condition || '-'}</span></td>
-          </tr>
-        `
-      }).join('')
-    }
-
-    // ================== CLOCK ==================
-    
-    function updateClock() {
-      const now = new Date()
-      document.getElementById('current-time').textContent = now.toLocaleString('en-US', {
-        weekday: 'short', year: 'numeric', month: 'short',
-        day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
-      }).toUpperCase()
-    }
-
-    // ================== INITIALIZE ==================
-    
-    async function init() {
-      // Setup UI components
-      setupThemeToggle()
-      setupNavigation()
-      setupForms()
-      setupDeleteModal()
-      setupExportButtons()
-      setupLogin()
-      setupAutoLock()
-      updateClock()
-      setInterval(updateClock, 1000)
-
-      // Set default date
-      const today = new Date().toISOString().split('T')[0]
-      document.getElementById('monitoring_date').value = today
-
-      // Initialize Supabase and load data
-      const connected = await initSupabase()
-      if (connected) {
-        await loadAllData()
-        subscribeToChanges()
-      }
-      
-      checkAuthStatus()
-      
-      // FILTER LINE EVENT
-      const lineFilter = document.getElementById('line-filter')
-      if (lineFilter) {
-        lineFilter.addEventListener('change', (e) => {
-          currentLineFilter = e.target.value
-          updateMonitoringTable()
-        })
-      }
-      
-      // FILTER STATUS EVENT
-      const statusFilter = document.getElementById('status-filter')
-      if (statusFilter) {
-        statusFilter.addEventListener('change', (e) => {
-          currentStatusFilter = e.target.value
-          updateMonitoringTable()
-        })
-      }
-
-      // RESET FILTER BUTTON
-      const resetBtn = document.getElementById('reset-filters')
-      if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
-          currentLineFilter = 'ALL'
-          currentStatusFilter = 'ALL'
-          document.getElementById('line-filter').value = 'ALL'
-          document.getElementById('status-filter').value = 'ALL'
-          updateMonitoringTable()
-        })
-      }
-    }
-
-    // Tunggu sampai semua library terload
-    window.addEventListener('load', init)
+    function showPage(page){ document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden')); document.getElementById(`page-${page}`).classList.remove('hidden'); }
+    function updateAuthUI(){ let ind=document.getElementById('auth-indicator'); let txt=document.getElementById('auth-text'); let logout=document.getElementById('logout-btn'); if(isAuth){ ind.className='w-2 h-2 rounded-full bg-emerald-500'; txt.innerText='LOGGED IN'; logout.classList.remove('hidden'); } else { ind.className='w-2 h-2 rounded-full bg-red-500'; txt.innerText='NOT LOGGED IN'; logout.classList.add('hidden'); } }
+    (async function(){
+      setupEvents();
+      updateClock(); setInterval(updateClock,1000);
+      document.getElementById('monitoring_date').value=new Date().toISOString().split('T')[0];
+      let authSaved=sessionStorage.getItem('ijp_auth');
+      if(authSaved==='true') isAuth=true;
+      updateAuthUI();
+      let connected=await initSupabase();
+      if(connected){ await loadAll(); supabase.channel('public').on('postgres_changes',{event:'*',schema:'public'},()=>loadAll()).subscribe(); }
+    })();
+    function updateClock(){ let d=new Date(); document.getElementById('current-time').innerText=d.toLocaleString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).toUpperCase(); }
   })();
 </script>
 </body>
